@@ -1,0 +1,10 @@
+{
+  "fixture_id": "alignment_score_v1_strategic_high",
+  "model": "claude-sonnet-4-6",
+  "prompt_hash": "steer_align_strategic_001",
+  "recorded_at": "2026-04-14T12:00:00Z",
+  "description": "Alignment score for a strategic high-priority AI accuracy goal",
+  "response": {
+    "content": "{\"score\": 0.82}"
+  }
+}

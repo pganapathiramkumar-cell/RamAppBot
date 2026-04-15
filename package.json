@@ -1,0 +1,32 @@
+{
+  "name": "rambot-enterprise",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@11.4.2",
+  "description": "Rambot Enterprise AI Platform - Steer & Skill",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "mobile:android": "cd apps/mobile && npx react-native run-android",
+    "mobile:ios": "cd apps/mobile && npx react-native run-ios",
+    "web": "cd apps/web && npm run dev",
+    "services:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
+    "services:down": "docker-compose -f infrastructure/docker/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

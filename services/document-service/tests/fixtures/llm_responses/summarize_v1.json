@@ -1,0 +1,8 @@
+{
+  "fixture_id": "sum_v1_short_contract",
+  "model": "claude-sonnet-4-6",
+  "recorded_at": "2026-04-14T12:00:00Z",
+  "response": {
+    "content": "This contract establishes a service agreement between Acme Corp and John Smith, effective April 1, 2026. Key terms include a 12-month engagement period, a non-disclosure clause (Section 4), and termination provisions (Section 7). Both parties agree to the payment schedule outlined in Appendix B."
+  }
+}

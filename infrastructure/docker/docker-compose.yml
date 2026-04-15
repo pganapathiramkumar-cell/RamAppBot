@@ -1,0 +1,160 @@
+version: '3.9'
+
+services:
+  # ── Databases ───────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rambot_user
+      POSTGRES_PASSWORD: rambot_pass
+      POSTGRES_MULTIPLE_DATABASES: steer_db,skill_db,auth_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rambot_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # ── Backend Services ─────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ../../services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      STEER_SERVICE_URL: http://steer-service:8001
+      SKILL_SERVICE_URL: http://skill-service:8002
+      AUTH_SERVICE_URL: http://auth-service:8003
+      AI_ORCHESTRATOR_URL: http://ai-orchestrator:8004
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  steer-service:
+    build:
+      context: ../../services/steer-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      STEER_DB_URL: postgresql+asyncpg://rambot_user:rambot_pass@postgres:5432/steer_db
+      REDIS_URL: redis://redis:6379/1
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  skill-service:
+    build:
+      context: ../../services/skill-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      SKILL_DB_URL: postgresql+asyncpg://rambot_user:rambot_pass@postgres:5432/skill_db
+      REDIS_URL: redis://redis:6379/2
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      AUTH_DB_URL: postgresql+asyncpg://rambot_user:rambot_pass@postgres:5432/auth_db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      REDIS_URL: redis://redis:6379/3
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai-orchestrator:
+    build:
+      context: ../../services/ai-orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      REDIS_URL: redis://redis:6379/4
+      STEER_SERVICE_URL: http://steer-service:8001
+      SKILL_SERVICE_URL: http://skill-service:8002
+
+  notification-service:
+    build:
+      context: ../../services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+
+  document-service:
+    build:
+      context: ../../services/document-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      SUPABASE_JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      CHROMA_PERSIST_PATH: /data/chroma
+    volumes:
+      - chroma_data:/data/chroma
+
+  # ── Frontend ─────────────────────────────────────────────────
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api-gateway:8000/api/v1
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  chroma_data:

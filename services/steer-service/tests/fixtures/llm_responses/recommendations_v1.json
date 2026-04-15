@@ -1,0 +1,9 @@
+{
+  "fixture_id": "recommendations_v1_active_strategic_goal",
+  "model": "claude-sonnet-4-6",
+  "recorded_at": "2026-04-14T12:00:00Z",
+  "description": "Recommendations for an active strategic AI goal",
+  "response": {
+    "content": "[\"Establish model accuracy KPIs with monthly review cadence\", \"Implement automated model evaluation pipeline\", \"Define fallback strategy for models below 85% accuracy\", \"Assign AI governance lead to track compliance\"]"
+  }
+}

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rambot Enterprise — Architecture Blueprint v1.0</title>
+<style>
+:root {
+  --navy:#1E3A5F; --red:#C0392B; --blue:#2471A3; --light-blue:#D6EAF8;
+  --green:#1E8449; --light-green:#D5F5E3; --orange:#CA6F1E; --light-orange:#FDEBD0;
+  --purple:#6C3483; --light-purple:#E8DAEF; --teal:#117A65; --light-teal:#D0ECE7;
+  --grey:#5D6D7E; --light-grey:#F4F6F7; --border:#CCD1D1; --text:#1C2833;
+  --yellow:#B7950B; --light-yellow:#FEF9E7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:var(--text);line-height:1.65;background:#fff}
+@media print{.no-print{display:none}.cover{page-break-after:always}section{page-break-before:always}h2{page-break-after:avoid}table,.info-box,pre{page-break-inside:avoid}}
+
+/* COVER */
+.cover{background:linear-gradient(135deg,#0D2137 0%,var(--navy) 60%,#1A5276 100%);color:white;padding:70px 60px;min-height:100vh;display:flex;flex-direction:column;justify-content:center;position:relative}
+.cover::after{content:'';position:absolute;bottom:0;left:0;right:0;height:6px;background:var(--red)}
+.cover-tag{font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:18px}
+.cover h1{font-size:52px;font-weight:800;margin-bottom:6px}
+.cover h1 span{color:var(--red)}
+.cover .subtitle{font-size:20px;color:rgba(255,255,255,.8);margin-bottom:6px}
+.cover .version{font-size:14px;color:rgba(255,255,255,.4);margin-bottom:50px}
+.cover-pills{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:40px}
+.pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:7px 16px;border-radius:20px;font-size:12px;color:rgba(255,255,255,.85)}
+.pill.hot{background:var(--red);border-color:var(--red);color:white;font-weight:600}
+.cover-stats{display:flex;gap:40px;margin-bottom:40px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat .num{font-size:34px;font-weight:800;color:white}
+.stat .lbl{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px}
+
+/* NAV */
+.doc-header{background:var(--navy);color:rgba(255,255,255,.75);padding:10px 40px;font-size:12px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.doc-header span{color:var(--red);font-weight:700}
+.print-btn{position:fixed;bottom:28px;right:28px;background:var(--navy);color:white;padding:11px 18px;border-radius:28px;cursor:pointer;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);border:none;z-index:200}
+.print-btn:hover{background:var(--red)}
+
+/* MAIN */
+main{max-width:1200px;margin:0 auto;padding:44px 40px}
+section{margin-bottom:60px}
+hr.divider{border:none;border-top:2px solid var(--border);margin:52px 0}
+
+/* HEADINGS */
+h1.sec{font-size:26px;color:var(--navy);font-weight:800;padding-bottom:12px;border-bottom:4px solid var(--red);margin-bottom:26px}
+h2.sub{font-size:18px;color:var(--navy);font-weight:700;margin:34px 0 13px}
+h3.sub3{font-size:15px;color:var(--blue);font-weight:700;margin:20px 0 8px}
+p{margin-bottom:13px}
+
+/* TABLES */
+.tw{overflow-x:auto;margin:14px 0 22px;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--navy);color:white;font-weight:600;padding:10px 13px;text-align:left;font-size:12px;letter-spacing:.4px}
+tbody tr:nth-child(even){background:var(--light-grey)}
+tbody tr:hover{background:var(--light-blue)}
+td{padding:8px 13px;border-bottom:1px solid var(--border);vertical-align:top}
+.bc{font-weight:600;color:var(--navy)}
+tfoot td{background:var(--navy);color:rgba(255,255,255,.8);font-size:12px;padding:8px 13px;font-style:italic}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:11px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.bg{background:var(--light-green);color:var(--green)}
+.bb{background:var(--light-blue);color:var(--blue)}
+.bo{background:var(--light-orange);color:var(--orange)}
+.br{background:#FADBD8;color:var(--red)}
+.bn{background:#D6E4F0;color:var(--navy)}
+.bp{background:var(--light-purple);color:var(--purple)}
+.bt{background:var(--light-teal);color:var(--teal)}
+.by{background:var(--light-yellow);color:var(--yellow)}
+
+/* INFO BOXES */
+.ib{border-radius:8px;overflow:hidden;margin:14px 0 22px;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+.ib .hd{padding:9px 15px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:white}
+.ib .bd{padding:14px 18px;font-size:13.5px}
+.ib.blue .hd{background:var(--blue)}.ib.blue .bd{background:var(--light-blue);color:#1a3a5f}
+.ib.green .hd{background:var(--green)}.ib.green .bd{background:var(--light-green)}
+.ib.orange .hd{background:var(--orange)}.ib.orange .bd{background:var(--light-orange)}
+.ib.purple .hd{background:var(--purple)}.ib.purple .bd{background:var(--light-purple)}
+.ib.teal .hd{background:var(--teal)}.ib.teal .bd{background:var(--light-teal)}
+.ib.navy .hd{background:var(--navy)}.ib.navy .bd{background:#EAF0F8}
+.ib.red .hd{background:var(--red)}.ib.red .bd{background:#FADBD8}
+
+/* TOC */
+.toc{background:var(--light-grey);padding:44px 60px}
+.toc h2{font-size:24px;color:var(--navy);margin-bottom:26px;padding-bottom:10px;border-bottom:3px solid var(--red)}
+.toc a{color:var(--navy);text-decoration:none;font-size:14px}
+.toc a:hover{color:var(--red)}
+.toc .tn{color:var(--red);font-weight:700;margin-right:8px}
+.toc li{margin-bottom:10px}
+
+/* ARCHITECTURE DIAGRAM */
+.arch-diagram{width:100%;overflow-x:auto;margin:20px 0 30px}
+.arch-diagram svg{min-width:900px;width:100%;height:auto}
+
+/* FLOW DIAGRAM */
+.flow-wrap{overflow-x:auto;margin:16px 0 28px}
+.flow{display:flex;align-items:center;gap:0;flex-wrap:nowrap;min-width:max-content}
+.flow-step{background:var(--light-grey);border-radius:8px;padding:14px 16px;min-width:130px;position:relative;border-top:4px solid var(--navy);text-align:center}
+.flow-step .fs-num{font-size:10px;color:var(--grey);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.flow-step h5{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.flow-step p{font-size:11px;color:var(--grey);margin:0}
+.flow-arrow{font-size:22px;color:var(--grey);padding:0 6px;flex-shrink:0}
+.flow-step.cl{border-top-color:var(--orange);background:var(--light-orange)}
+.flow-step.gw{border-top-color:var(--red);background:#FADBD8}
+.flow-step.svc{border-top-color:var(--blue);background:var(--light-blue)}
+.flow-step.ai{border-top-color:var(--purple);background:var(--light-purple)}
+.flow-step.db{border-top-color:var(--green);background:var(--light-green)}
+.flow-step.msg{border-top-color:var(--teal);background:var(--light-teal)}
+
+/* LAYER BOXES */
+.layer{border-radius:10px;padding:18px 20px;margin:10px 0}
+.layer-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;color:inherit}
+.layer-row{display:flex;gap:10px;flex-wrap:wrap}
+.svc-box{border-radius:8px;padding:12px 14px;flex:1;min-width:130px;max-width:200px;text-align:center;border:2px solid rgba(0,0,0,.08)}
+.svc-box .svc-name{font-size:13px;font-weight:700;margin-bottom:4px}
+.svc-box .svc-port{font-size:11px;color:var(--grey);margin-bottom:6px}
+.svc-box .svc-tech{font-size:11px;color:var(--grey)}
+.svc-box .badge{margin-top:6px}
+
+/* STEP CARDS */
+.step-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:14px 0 22px}
+.step-card{background:var(--light-grey);border-radius:8px;padding:14px;border-left:4px solid var(--navy)}
+.step-card.rag{border-left-color:var(--purple)}
+.step-card.auth{border-left-color:var(--orange)}
+.step-card.ai{border-left-color:var(--blue)}
+.step-card .sc-num{font-size:10px;color:var(--grey);font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.step-card h4{font-size:13px;color:var(--navy);font-weight:700;margin-bottom:5px}
+.step-card p{font-size:12px;color:var(--grey);margin:0}
+
+/* VERSION CHIPS */
+.ver{background:var(--navy);color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.3px}
+
+/* LEGEND */
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:12px}
+.leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="doc-header no-print">
+  Rambot Enterprise — Architecture Blueprint v1.0 &nbsp;|&nbsp; April 2026
+  &nbsp;&nbsp;&nbsp;
+  <span>ENTERPRISE AI PLATFORM</span>
+</div>
+<button class="print-btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-tag">Architecture Blueprint — V1.0</div>
+  <h1><span>Ram</span>bot Enterprise</h1>
+  <div class="subtitle">Full-Stack Architecture — Web · Mobile · Backend · AI</div>
+  <div class="version">v1.0 — April 2026 &nbsp;|&nbsp; Steer · Skill · DocuMind RAG</div>
+  <div class="cover-pills">
+    <div class="pill hot">Next.js 14</div>
+    <div class="pill hot">Expo 54</div>
+    <div class="pill hot">FastAPI 0.111</div>
+    <div class="pill hot">Claude Sonnet 4.6</div>
+    <div class="pill">PostgreSQL 16</div>
+    <div class="pill">Redis 7</div>
+    <div class="pill">RabbitMQ 3.13</div>
+    <div class="pill">ChromaDB 0.5</div>
+    <div class="pill">Kubernetes</div>
+    <div class="pill">Turborepo 2.0</div>
+  </div>
+  <div class="cover-stats">
+    <div class="stat"><div class="num">7</div><div class="lbl">Microservices</div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">Platforms</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">Data Stores</div></div>
+    <div class="stat"><div class="num">120+</div><div class="lbl">Test Cases</div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">AI Chains</div></div>
+  </div>
+  <div style="font-size:13px;color:rgba(255,255,255,.4);font-style:italic">
+    Web (Vercel) · Backend (Render) · iOS (App Store) · Android (Play Store)
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc no-print">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#s1"><span class="tn">1.</span> System Architecture Overview</a></li>
+    <li><a href="#s2"><span class="tn">2.</span> Service Topology & Ports</a></li>
+    <li><a href="#s3"><span class="tn">3.</span> Data Flow — Document RAG Pipeline</a></li>
+    <li><a href="#s4"><span class="tn">4.</span> Data Flow — Authentication</a></li>
+    <li><a href="#s5"><span class="tn">5.</span> Data Flow — Steer &amp; Skill AI Agents</a></li>
+    <li><a href="#s6"><span class="tn">6.</span> Technology Stack &amp; Versions</a></li>
+    <li><a href="#s7"><span class="tn">7.</span> Deployment Architecture</a></li>
+    <li><a href="#s8"><span class="tn">8.</span> Event Bus &amp; Messaging</a></li>
+    <li><a href="#s9"><span class="tn">9.</span> Testing Architecture</a></li>
+    <li><a href="#s10"><span class="tn">10.</span> Design Principles</a></li>
+  </ol>
+</div>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s1">
+<h1 class="sec">1. System Architecture Overview</h1>
+
+<p>Rambot Enterprise is a <strong>Turborepo monorepo</strong> split into three layers: client apps (Web + Mobile), backend microservices (7 FastAPI services), and a shared data/AI tier. All services communicate through a central API Gateway. The AI tier uses <strong>Anthropic Claude Sonnet 4.6</strong> for strategic analysis and a local <strong>RAG pipeline</strong> (sentence-transformers + ChromaDB) for document analysis.</p>
+
+<div class="arch-diagram">
+<svg viewBox="0 0 1050 760" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial,sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5D6D7E"/>
+    </marker>
+    <marker id="arr-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#C0392B"/>
+    </marker>
+    <marker id="arr-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2471A3"/>
+    </marker>
+    <marker id="arr-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1E8449"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- ─── LAYER LABELS ─────────────────────────────────── -->
+  <text x="18" y="65" font-size="10" fill="#9B9B9B" font-weight="700" letter-spacing="1.5" transform="rotate(-90,18,65)">CLIENT</text>
+  <text x="18" y="215" font-size="10" fill="#9B9B9B" font-weight="700" letter-spacing="1.5" transform="rotate(-90,18,215)">GATEWAY</text>
+  <text x="18" y="400" font-size="10" fill="#9B9B9B" font-weight="700" letter-spacing="1.5" transform="rotate(-90,18,400)">SERVICES</text>
+  <text x="18" y="565" font-size="10" fill="#9B9B9B" font-weight="700" letter-spacing="1.5" transform="rotate(-90,18,565)">AI</text>
+  <text x="18" y="690" font-size="10" fill="#9B9B9B" font-weight="700" letter-spacing="1.5" transform="rotate(-90,18,690)">DATA</text>
+
+  <!-- ─── LAYER BANDS ────────────────────────────────────── -->
+  <rect x="40" y="20" width="995" height="105" rx="10" fill="#FDEBD0" opacity=".5"/>
+  <rect x="40" y="145" width="995" height="85" rx="10" fill="#FADBD8" opacity=".5"/>
+  <rect x="40" y="250" width="995" height="200" rx="10" fill="#D6EAF8" opacity=".4"/>
+  <rect x="40" y="470" width="995" height="110" rx="10" fill="#E8DAEF" opacity=".4"/>
+  <rect x="40" y="600" width="995" height="140" rx="10" fill="#D5F5E3" opacity=".4"/>
+
+  <!-- ─── CLIENT LAYER ──────────────────────────────────── -->
+  <!-- Web -->
+  <rect x="70" y="35" width="200" height="80" rx="8" fill="white" stroke="#CA6F1E" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="70" y="35" width="200" height="22" rx="8" fill="#CA6F1E"/>
+  <rect x="70" y="46" width="200" height="11" fill="#CA6F1E"/>
+  <text x="170" y="51" text-anchor="middle" font-size="11" fill="white" font-weight="700">WEB BROWSER</text>
+  <text x="170" y="74" text-anchor="middle" font-size="12" fill="#1C2833" font-weight="700">Next.js 14.2.4</text>
+  <text x="170" y="90" text-anchor="middle" font-size="10" fill="#5D6D7E">React 18.2 · Redux · TailwindCSS 3.4</text>
+  <text x="170" y="105" text-anchor="middle" font-size="10" fill="#CA6F1E" font-weight="600">→ Deploy: Vercel</text>
+
+  <!-- iOS -->
+  <rect x="420" y="35" width="200" height="80" rx="8" fill="white" stroke="#CA6F1E" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="420" y="35" width="200" height="22" rx="8" fill="#CA6F1E"/>
+  <rect x="420" y="46" width="200" height="11" fill="#CA6F1E"/>
+  <text x="520" y="51" text-anchor="middle" font-size="11" fill="white" font-weight="700">iOS APP</text>
+  <text x="520" y="74" text-anchor="middle" font-size="12" fill="#1C2833" font-weight="700">Expo 54.0 / RN 0.81.5</text>
+  <text x="520" y="90" text-anchor="middle" font-size="10" fill="#5D6D7E">expo-router 6 · iOS ≥ 15.1</text>
+  <text x="520" y="105" text-anchor="middle" font-size="10" fill="#CA6F1E" font-weight="600">→ Deploy: App Store (EAS)</text>
+
+  <!-- Android -->
+  <rect x="770" y="35" width="220" height="80" rx="8" fill="white" stroke="#CA6F1E" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="770" y="35" width="220" height="22" rx="8" fill="#CA6F1E"/>
+  <rect x="770" y="46" width="220" height="11" fill="#CA6F1E"/>
+  <text x="880" y="51" text-anchor="middle" font-size="11" fill="white" font-weight="700">ANDROID APP</text>
+  <text x="880" y="74" text-anchor="middle" font-size="12" fill="#1C2833" font-weight="700">Expo 54.0 / RN 0.81.5</text>
+  <text x="880" y="90" text-anchor="middle" font-size="10" fill="#5D6D7E">expo-router 6 · Edge-to-Edge</text>
+  <text x="880" y="105" text-anchor="middle" font-size="10" fill="#CA6F1E" font-weight="600">→ Deploy: Play Store (EAS)</text>
+
+  <!-- ─── ARROWS CLIENT → GATEWAY ───────────────────────── -->
+  <line x1="170" y1="115" x2="490" y2="155" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <line x1="520" y1="115" x2="520" y2="155" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <line x1="880" y1="115" x2="560" y2="155" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+
+  <!-- ─── API GATEWAY ────────────────────────────────────── -->
+  <rect x="120" y="155" width="800" height="70" rx="8" fill="white" stroke="#C0392B" stroke-width="2.5" filter="url(#shadow)"/>
+  <rect x="120" y="155" width="800" height="22" rx="8" fill="#C0392B"/>
+  <rect x="120" y="165" width="800" height="12" fill="#C0392B"/>
+  <text x="520" y="171" text-anchor="middle" font-size="12" fill="white" font-weight="700">API GATEWAY — FastAPI 0.111.0 · Python 3.11 · Port :8000</text>
+  <text x="220" y="198" text-anchor="middle" font-size="11" fill="#1a3a5f" font-weight="600">JWT Auth (HS256)</text>
+  <text x="400" y="198" text-anchor="middle" font-size="11" fill="#1a3a5f" font-weight="600">Rate Limiter (Redis)</text>
+  <text x="580" y="198" text-anchor="middle" font-size="11" fill="#1a3a5f" font-weight="600">Logging (structlog)</text>
+  <text x="760" y="198" text-anchor="middle" font-size="11" fill="#1a3a5f" font-weight="600">GZip · CORS</text>
+  <line x1="305" y1="180" x2="305" y2="215" stroke="#CCD1D1" stroke-width="1"/>
+  <line x1="490" y1="180" x2="490" y2="215" stroke="#CCD1D1" stroke-width="1"/>
+  <line x1="670" y1="180" x2="670" y2="215" stroke="#CCD1D1" stroke-width="1"/>
+
+  <!-- ─── ARROWS GATEWAY → SERVICES ─────────────────────── -->
+  <line x1="205" y1="225" x2="115" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="305" y1="225" x2="265" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="420" y1="225" x2="415" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="530" y1="225" x2="565" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="640" y1="225" x2="715" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="730" y1="225" x2="855" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="800" y1="225" x2="975" y2="262" stroke="#C0392B" stroke-width="1.5" marker-end="url(#arr-red)"/>
+
+  <!-- ─── SERVICES ──────────────────────────────────────── -->
+  <!-- Auth :8003 -->
+  <rect x="55" y="262" width="115" height="75" rx="7" fill="white" stroke="#2471A3" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="55" y="262" width="115" height="18" rx="7" fill="#2471A3"/>
+  <rect x="55" y="271" width="115" height="9" fill="#2471A3"/>
+  <text x="112" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">AUTH :8003</text>
+  <text x="112" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">auth-service</text>
+  <text x="112" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">FastAPI · PyJWT</text>
+  <text x="112" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">PostgreSQL · Redis</text>
+
+  <!-- Steer :8001 -->
+  <rect x="200" y="262" width="125" height="75" rx="7" fill="white" stroke="#2471A3" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="200" y="262" width="125" height="18" rx="7" fill="#2471A3"/>
+  <rect x="200" y="271" width="125" height="9" fill="#2471A3"/>
+  <text x="262" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">STEER :8001</text>
+  <text x="262" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">steer-service</text>
+  <text x="262" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">DDD · CQRS · Clean</text>
+  <text x="262" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">PostgreSQL · Redis · RMQ</text>
+
+  <!-- Skill :8002 -->
+  <rect x="355" y="262" width="125" height="75" rx="7" fill="white" stroke="#2471A3" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="355" y="262" width="125" height="18" rx="7" fill="#2471A3"/>
+  <rect x="355" y="271" width="125" height="9" fill="#2471A3"/>
+  <text x="417" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">SKILL :8002</text>
+  <text x="417" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">skill-service</text>
+  <text x="417" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">DDD · CQRS · Clean</text>
+  <text x="417" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">PostgreSQL · Redis · RMQ</text>
+
+  <!-- AI Orchestrator :8004 -->
+  <rect x="510" y="262" width="135" height="75" rx="7" fill="white" stroke="#2471A3" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="510" y="262" width="135" height="18" rx="7" fill="#2471A3"/>
+  <rect x="510" y="271" width="135" height="9" fill="#2471A3"/>
+  <text x="577" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">AI ORCH :8004</text>
+  <text x="577" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">ai-orchestrator</text>
+  <text x="577" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">SteerAgent · SkillAgent</text>
+  <text x="577" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">Tool Use · Multi-turn</text>
+
+  <!-- Document Service (NEW) -->
+  <rect x="670" y="262" width="135" height="75" rx="7" fill="white" stroke="#6C3483" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="670" y="262" width="135" height="18" rx="7" fill="#6C3483"/>
+  <rect x="670" y="271" width="135" height="9" fill="#6C3483"/>
+  <text x="737" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">DOC SVC ★NEW</text>
+  <text x="737" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">document-service</text>
+  <text x="737" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">RAG · PDF · 5MB limit</text>
+  <text x="737" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">ChromaDB · pypdf</text>
+
+  <!-- Notification :8005 -->
+  <rect x="830" y="262" width="130" height="75" rx="7" fill="white" stroke="#2471A3" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="830" y="262" width="130" height="18" rx="7" fill="#2471A3"/>
+  <rect x="830" y="271" width="130" height="9" fill="#2471A3"/>
+  <text x="895" y="276" text-anchor="middle" font-size="10" fill="white" font-weight="700">NOTIF :8005</text>
+  <text x="895" y="295" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">notification-service</text>
+  <text x="895" y="308" text-anchor="middle" font-size="9" fill="#5D6D7E">RabbitMQ Consumer</text>
+  <text x="895" y="322" text-anchor="middle" font-size="9" fill="#5D6D7E">FCM Push</text>
+
+  <!-- ─── ARROWS SERVICES → AI ───────────────────────────── -->
+  <line x1="577" y1="337" x2="450" y2="482" stroke="#6C3483" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="737" y1="337" x2="640" y2="482" stroke="#6C3483" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="262" y1="337" x2="390" y2="482" stroke="#6C3483" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+
+  <!-- ─── AI LAYER ───────────────────────────────────────── -->
+  <!-- Claude Sonnet -->
+  <rect x="270" y="482" width="260" height="80" rx="8" fill="white" stroke="#6C3483" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="270" y="482" width="260" height="22" rx="8" fill="#6C3483"/>
+  <rect x="270" y="492" width="260" height="12" fill="#6C3483"/>
+  <text x="400" y="498" text-anchor="middle" font-size="11" fill="white" font-weight="700">ANTHROPIC CLAUDE</text>
+  <text x="400" y="520" text-anchor="middle" font-size="12" fill="#1C2833" font-weight="700">claude-sonnet-4-6</text>
+  <text x="400" y="535" text-anchor="middle" font-size="10" fill="#5D6D7E">Tool Use · Multi-turn · 200K ctx</text>
+  <text x="400" y="549" text-anchor="middle" font-size="10" fill="#5D6D7E">SteerAgent · SkillAgent · SummarizeChain</text>
+
+  <!-- sentence-transformers -->
+  <rect x="560" y="482" width="260" height="80" rx="8" fill="white" stroke="#6C3483" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="560" y="482" width="260" height="22" rx="8" fill="#117A65"/>
+  <rect x="560" y="492" width="260" height="12" fill="#117A65"/>
+  <text x="690" y="498" text-anchor="middle" font-size="11" fill="white" font-weight="700">SENTENCE TRANSFORMERS</text>
+  <text x="690" y="520" text-anchor="middle" font-size="12" fill="#1C2833" font-weight="700">all-MiniLM-L6-v2</text>
+  <text x="690" y="535" text-anchor="middle" font-size="10" fill="#5D6D7E">384-dim embeddings · Deterministic</text>
+  <text x="690" y="549" text-anchor="middle" font-size="10" fill="#5D6D7E">ChromaDB 0.5 · Cosine similarity RAG</text>
+
+  <!-- ─── ARROWS AI → DATA ───────────────────────────────── -->
+  <line x1="262" y1="337" x2="130" y2="612" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <line x1="417" y1="337" x2="280" y2="612" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <line x1="895" y1="337" x2="660" y2="612" stroke="#5D6D7E" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <line x1="690" y1="562" x2="820" y2="612" stroke="#117A65" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+  <!-- ─── DATA LAYER ─────────────────────────────────────── -->
+  <!-- PostgreSQL -->
+  <rect x="55" y="615" width="160" height="70" rx="7" fill="white" stroke="#1E8449" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="55" y="615" width="160" height="18" rx="7" fill="#1E8449"/>
+  <rect x="55" y="624" width="160" height="9" fill="#1E8449"/>
+  <text x="135" y="630" text-anchor="middle" font-size="10" fill="white" font-weight="700">PostgreSQL 16</text>
+  <text x="135" y="650" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">steer_db · skill_db · auth_db</text>
+  <text x="135" y="664" text-anchor="middle" font-size="9" fill="#5D6D7E">asyncpg · SQLAlchemy 2.0</text>
+  <text x="135" y="677" text-anchor="middle" font-size="9" fill="#5D6D7E">Alembic migrations</text>
+
+  <!-- Redis -->
+  <rect x="240" y="615" width="145" height="70" rx="7" fill="white" stroke="#1E8449" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="240" y="615" width="145" height="18" rx="7" fill="#1E8449"/>
+  <rect x="240" y="624" width="145" height="9" fill="#1E8449"/>
+  <text x="312" y="630" text-anchor="middle" font-size="10" fill="white" font-weight="700">Redis 7</text>
+  <text x="312" y="650" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">Cache · Rate Limit</text>
+  <text x="312" y="664" text-anchor="middle" font-size="9" fill="#5D6D7E">Sliding window (sorted set)</text>
+  <text x="312" y="677" text-anchor="middle" font-size="9" fill="#5D6D7E">TTL 300s · aioredis</text>
+
+  <!-- RabbitMQ -->
+  <rect x="410" y="615" width="160" height="70" rx="7" fill="white" stroke="#1E8449" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="410" y="615" width="160" height="18" rx="7" fill="#1E8449"/>
+  <rect x="410" y="624" width="160" height="9" fill="#1E8449"/>
+  <text x="490" y="630" text-anchor="middle" font-size="10" fill="white" font-weight="700">RabbitMQ 3.13</text>
+  <text x="490" y="650" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">Event Bus · TOPIC exchange</text>
+  <text x="490" y="664" text-anchor="middle" font-size="9" fill="#5D6D7E">aio-pika · Persistent msgs</text>
+  <text x="490" y="677" text-anchor="middle" font-size="9" fill="#5D6D7E">DomainEvents → Notifications</text>
+
+  <!-- ChromaDB -->
+  <rect x="600" y="615" width="165" height="70" rx="7" fill="white" stroke="#117A65" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="600" y="615" width="165" height="18" rx="7" fill="#117A65"/>
+  <rect x="600" y="624" width="165" height="9" fill="#117A65"/>
+  <text x="682" y="630" text-anchor="middle" font-size="10" fill="white" font-weight="700">ChromaDB 0.5</text>
+  <text x="682" y="650" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">Vector Store · Document RAG</text>
+  <text x="682" y="664" text-anchor="middle" font-size="9" fill="#5D6D7E">384-dim · Per-doc isolation</text>
+  <text x="682" y="677" text-anchor="middle" font-size="9" fill="#5D6D7E">Cosine similarity search</text>
+
+  <!-- Supabase / Storage -->
+  <rect x="793" y="615" width="165" height="70" rx="7" fill="white" stroke="#1E8449" stroke-width="1.8" filter="url(#shadow)"/>
+  <rect x="793" y="615" width="165" height="18" rx="7" fill="#1E8449"/>
+  <rect x="793" y="624" width="165" height="9" fill="#1E8449"/>
+  <text x="875" y="630" text-anchor="middle" font-size="10" fill="white" font-weight="700">Object Storage</text>
+  <text x="875" y="650" text-anchor="middle" font-size="10" fill="#1C2833" font-weight="600">PDF Files · Supabase</text>
+  <text x="875" y="664" text-anchor="middle" font-size="9" fill="#5D6D7E">Content-hash dedup</text>
+  <text x="875" y="677" text-anchor="middle" font-size="9" fill="#5D6D7E">Max 5MB per file</text>
+
+  <!-- ─── LAYER LABELS (right side) ──────────────────────── -->
+  <text x="1040" y="80" text-anchor="end" font-size="10" fill="#CA6F1E" font-weight="700" letter-spacing="1">CLIENT LAYER</text>
+  <text x="1040" y="200" text-anchor="end" font-size="10" fill="#C0392B" font-weight="700" letter-spacing="1">GATEWAY LAYER</text>
+  <text x="1040" y="360" text-anchor="end" font-size="10" fill="#2471A3" font-weight="700" letter-spacing="1">SERVICE LAYER</text>
+  <text x="1040" y="530" text-anchor="end" font-size="10" fill="#6C3483" font-weight="700" letter-spacing="1">AI LAYER</text>
+  <text x="1040" y="660" text-anchor="end" font-size="10" fill="#1E8449" font-weight="700" letter-spacing="1">DATA LAYER</text>
+</svg>
+</div>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#CA6F1E"></div> Client (Web/Mobile)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#C0392B"></div> API Gateway</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#2471A3"></div> Backend Services</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#6C3483"></div> AI / ML Layer</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1E8449"></div> Data Stores</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#117A65"></div> Vector Store / RAG</div>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s2">
+<h1 class="sec">2. Service Topology &amp; Ports</h1>
+
+<div class="tw">
+<table>
+<thead><tr><th>Service</th><th>Port</th><th>Responsibility</th><th>DB</th><th>Cache</th><th>Events</th></tr></thead>
+<tbody>
+<tr><td class="bc">api-gateway</td><td>:8000</td><td>JWT auth, rate limiting, routing to downstream services</td><td>—</td><td>Redis :6379/0</td><td>—</td></tr>
+<tr><td class="bc">steer-service</td><td>:8001</td><td>Strategic AI goals — DDD entities, CQRS, alignment scoring</td><td>steer_db</td><td>Redis :6379/1</td><td>Publisher</td></tr>
+<tr><td class="bc">skill-service</td><td>:8002</td><td>AI skill catalog, gap analysis, quality scoring</td><td>skill_db</td><td>Redis :6379/2</td><td>Publisher</td></tr>
+<tr><td class="bc">auth-service</td><td>:8003</td><td>User registration, login, JWT issuance (HS256)</td><td>auth_db</td><td>Redis :6379/3</td><td>—</td></tr>
+<tr><td class="bc">ai-orchestrator</td><td>:8004</td><td>SteerAgent + SkillAgent (Claude tool-use, multi-turn)</td><td>—</td><td>Redis :6379/4</td><td>—</td></tr>
+<tr><td class="bc">document-service</td><td>TBD</td><td>PDF upload (5MB), RAG pipeline: Summary + Entities + Workflow</td><td>docs_db</td><td>—</td><td>—</td></tr>
+<tr><td class="bc">notification-service</td><td>:8005</td><td>RabbitMQ consumer → FCM push notifications</td><td>—</td><td>—</td><td>Consumer</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 class="sub">Inter-Service Communication Rules</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Pattern</th><th>Used For</th><th>Technology</th></tr></thead>
+<tbody>
+<tr><td class="bc">Synchronous REST</td><td>Client → Gateway → Service (request/response)</td><td>httpx async · FastAPI</td></tr>
+<tr><td class="bc">Async Events</td><td>Domain state changes (goal created, skill updated)</td><td>RabbitMQ 3.13 · TOPIC exchange · aio-pika</td></tr>
+<tr><td class="bc">Cache Aside</td><td>Read-heavy queries (steer goals, skill catalog)</td><td>Redis 7 · TTL 300s · invalidate on write</td></tr>
+<tr><td class="bc">AI Tool Use</td><td>Structured data retrieval inside AI agent loops</td><td>Anthropic tool_use · Multi-turn messages API</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s3">
+<h1 class="sec">3. Data Flow — Document RAG Pipeline</h1>
+<p>The core DocuMind feature: a user uploads a PDF (≤5MB) and receives <strong>Summary</strong>, <strong>Action Points</strong> (entities), and <strong>Workflow</strong>. Three AI chains run sequentially against the extracted text.</p>
+
+<div class="flow-wrap">
+<div class="flow">
+  <div class="flow-step cl"><div class="fs-num">Step 1</div><h5>User Upload</h5><p>Select PDF ≤5MB<br>iOS / Android / Web</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step gw"><div class="fs-num">Step 2</div><h5>API Gateway</h5><p>JWT validate<br>Rate check</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">Step 3</div><h5>File Validate</h5><p>Magic bytes check<br>5MB size guard</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step db"><div class="fs-num">Step 4</div><h5>Dedup + Store</h5><p>SHA-256 hash<br>Object storage</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">Step 5</div><h5>Text Extract</h5><p>pypdf 4.2<br>Page-by-page</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step ai"><div class="fs-num">Step 6</div><h5>Chunk + Embed</h5><p>all-MiniLM-L6-v2<br>384-dim · ChromaDB</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step ai"><div class="fs-num">Step 7</div><h5>AI Chains</h5><p>Summarize<br>Extract · Workflow</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step db"><div class="fs-num">Step 8</div><h5>Persist Result</h5><p>DB: analyses table<br>status = done</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step cl"><div class="fs-num">Step 9</div><h5>Return to User</h5><p>Summary · Entities<br>Workflow steps</p></div>
+</div>
+</div>
+
+<h2 class="sub">AI Chain Detail</h2>
+<div class="step-grid">
+  <div class="step-card rag"><div class="sc-num">CHAIN 1 — SUMMARIZE</div><h4>SummarizationChain</h4><p><strong>&lt;4000 tokens:</strong> Stuffing strategy — single Claude call with full text.<br><strong>≥4000 tokens:</strong> Map-Reduce — chunk→summarise each→reduce to final.<br>Token estimate: 1 token ≈ 4 chars.</p></div>
+  <div class="step-card rag"><div class="sc-num">CHAIN 2 — EXTRACT</div><h4>EntityExtractionChain</h4><p>Extracts structured JSON: <strong>names · dates · clauses · tasks · risks</strong>.<br>Retries up to 3× on malformed JSON. Schema-validated via <code>jsonschema</code>.<br>Markdown code-fence stripping built in.</p></div>
+  <div class="step-card rag"><div class="sc-num">CHAIN 3 — WORKFLOW</div><h4>WorkflowGenerationChain</h4><p><strong>2-step:</strong> Extract objectives → Generate numbered steps.<br>Output: JSON array with <em>step_number · action · priority (High/Medium/Low)</em>.<br>Sequential numbering normalised automatically.</p></div>
+</div>
+
+<div class="ib purple">
+<div class="hd">AI Testing Principle — Never Call Real LLM in CI Fast Path</div>
+<div class="bd">All three chains accept an injected <code>llm</code> parameter. Unit and integration tests pass <code>AsyncMock</code> with pre-recorded JSON fixtures. Real Claude is only called in nightly security tests and weekly golden-path E2E tests.</div>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s4">
+<h1 class="sec">4. Data Flow — Authentication</h1>
+
+<div class="flow-wrap">
+<div class="flow">
+  <div class="flow-step cl"><div class="fs-num">Step 1</div><h5>Login Request</h5><p>email + password<br>from client</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step gw"><div class="fs-num">Step 2</div><h5>API Gateway</h5><p>Route to<br>auth-service</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">Step 3</div><h5>auth-service</h5><p>Verify credentials<br>bcrypt hash check</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step db"><div class="fs-num">Step 4</div><h5>auth_db</h5><p>users table<br>PostgreSQL 16</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">Step 5</div><h5>Issue JWT</h5><p>HS256 · sub=user_id<br>exp=1h · iat=now</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step cl"><div class="fs-num">Step 6</div><h5>Token Stored</h5><p>SecureStore (mobile)<br>httpOnly cookie (web)</p></div>
+</div>
+</div>
+
+<h2 class="sub">Subsequent Authenticated Request</h2>
+<div class="flow-wrap">
+<div class="flow">
+  <div class="flow-step cl"><div class="fs-num">1</div><h5>Request + JWT</h5><p>Authorization:<br>Bearer &lt;token&gt;</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step gw"><div class="fs-num">2</div><h5>AuthMiddleware</h5><p>decode_token()<br>HS256 verify</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step gw"><div class="fs-num">3</div><h5>RateLimiter</h5><p>Redis ZADD/ZCARD<br>200 req/min per IP</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">4</div><h5>Service Handler</h5><p>user_id from payload<br>business logic</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step cl"><div class="fs-num">5</div><h5>Response</h5><p>JSON + GZip<br>CORS headers</p></div>
+</div>
+</div>
+
+<div class="tw">
+<table>
+<thead><tr><th>Security Check</th><th>Where</th><th>Behaviour on Fail</th></tr></thead>
+<tbody>
+<tr><td class="bc">Missing Authorization header</td><td>AuthMiddleware</td><td>401 AUTH_REQUIRED</td></tr>
+<tr><td class="bc">alg=none bypass attempt</td><td>decode_token()</td><td>400 — none algorithm rejected</td></tr>
+<tr><td class="bc">Wrong algorithm (RS256)</td><td>decode_token()</td><td>400 — algorithm mismatch</td></tr>
+<tr><td class="bc">Expired token (exp past)</td><td>PyJWT</td><td>401 TOKEN_EXPIRED</td></tr>
+<tr><td class="bc">Tampered signature</td><td>PyJWT</td><td>401 INVALID_TOKEN</td></tr>
+<tr><td class="bc">Future iat (issued in future)</td><td>decode_token()</td><td>401 INVALID_TOKEN</td></tr>
+<tr><td class="bc">Rate limit exceeded</td><td>RateLimitMiddleware</td><td>429 + Retry-After header</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s5">
+<h1 class="sec">5. Data Flow — Steer &amp; Skill AI Agents</h1>
+
+<div class="flow-wrap">
+<div class="flow">
+  <div class="flow-step cl"><div class="fs-num">1</div><h5>User Request</h5><p>Analyze goals /<br>Skill gap analysis</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step gw"><div class="fs-num">2</div><h5>Gateway</h5><p>Proxy to<br>ai-orchestrator</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step ai"><div class="fs-num">3</div><h5>SteerAgent</h5><p>Build messages<br>array for Claude</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step ai"><div class="fs-num">4</div><h5>Claude Tool Use</h5><p>get_org_maturity<br>analyze_deps</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step svc"><div class="fs-num">5</div><h5>Tool Execution</h5><p>Fetch from<br>steer-service DB</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step ai"><div class="fs-num">6</div><h5>Claude end_turn</h5><p>Final analysis<br>text response</p></div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step cl"><div class="fs-num">7</div><h5>Display</h5><p>AlignmentSummary<br>SteerGoalTable</p></div>
+</div>
+</div>
+
+<h2 class="sub">Agent Tools Available</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Agent</th><th>Tool Name</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td class="bc" rowspan="3">SteerAgent</td><td>get_organization_ai_maturity</td><td>Fetch org's AI maturity level and capabilities</td></tr>
+<tr><td>analyze_goal_dependencies</td><td>Identify dependencies between strategic goal IDs</td></tr>
+<tr><td>benchmark_against_industry</td><td>Compare AI goals against industry percentiles</td></tr>
+<tr><td class="bc" rowspan="3">SkillAgent</td><td>get_skill_catalog</td><td>Retrieve current skill catalog by category (NLP, Vision, RAG…)</td></tr>
+<tr><td>identify_skill_gaps</td><td>Find skills missing relative to steer goal IDs</td></tr>
+<tr><td>get_learning_resources</td><td>Return learning resources for a skill at a given proficiency level</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s6">
+<h1 class="sec">6. Technology Stack &amp; Versions</h1>
+
+<h2 class="sub">Frontend</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Technology</th><th>Version</th><th>Used In</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td class="bc">Next.js</td><td><span class="ver">14.2.4</span></td><td>apps/web</td><td>React SSR/SSG framework → Vercel</td></tr>
+<tr><td class="bc">React</td><td><span class="ver">18.2.0</span></td><td>apps/web</td><td>UI library</td></tr>
+<tr><td class="bc">TypeScript</td><td><span class="ver">5.5.3</span></td><td>apps/web</td><td>Static typing</td></tr>
+<tr><td class="bc">TailwindCSS</td><td><span class="ver">3.4.4</span></td><td>apps/web</td><td>Utility-first CSS</td></tr>
+<tr><td class="bc">@reduxjs/toolkit</td><td><span class="ver">2.2.5</span></td><td>apps/web</td><td>State management (Steer + Skill slices)</td></tr>
+<tr><td class="bc">@tanstack/react-query</td><td><span class="ver">5.45.0</span></td><td>apps/web</td><td>Server state, cache invalidation</td></tr>
+<tr><td class="bc">Axios</td><td><span class="ver">1.7.2</span></td><td>apps/web</td><td>HTTP client</td></tr>
+<tr><td class="bc">Recharts</td><td><span class="ver">2.12.7</span></td><td>apps/web</td><td>Charts for alignment scores</td></tr>
+<tr><td class="bc">React Hook Form</td><td><span class="ver">7.52.0</span></td><td>apps/web</td><td>Form handling</td></tr>
+<tr><td class="bc">Zod</td><td><span class="ver">3.23.8</span></td><td>apps/web</td><td>Schema validation</td></tr>
+<tr><td class="bc">Expo</td><td><span class="ver">54.0.33</span></td><td>apps/mobile</td><td>React Native toolchain → iOS + Android</td></tr>
+<tr><td class="bc">React Native</td><td><span class="ver">0.81.5</span></td><td>apps/mobile</td><td>Cross-platform mobile UI</td></tr>
+<tr><td class="bc">expo-router</td><td><span class="ver">6.0.23</span></td><td>apps/mobile</td><td>File-based navigation (iOS + Android + Web)</td></tr>
+<tr><td class="bc">React Native Reanimated</td><td><span class="ver">4.1.1</span></td><td>apps/mobile</td><td>Animations</td></tr>
+<tr><td class="bc">TypeScript (mobile)</td><td><span class="ver">5.9.2</span></td><td>apps/mobile</td><td>Static typing</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 class="sub">Backend Services</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Technology</th><th>Version</th><th>Used In</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td class="bc">Python</td><td><span class="ver">3.11</span></td><td>All services</td><td>Runtime</td></tr>
+<tr><td class="bc">FastAPI</td><td><span class="ver">0.111.0</span></td><td>All services</td><td>Async REST framework</td></tr>
+<tr><td class="bc">Uvicorn</td><td><span class="ver">0.29.0</span></td><td>All services</td><td>ASGI server with standard extras</td></tr>
+<tr><td class="bc">Pydantic</td><td><span class="ver">2.7.0</span></td><td>All services</td><td>Data validation and serialisation</td></tr>
+<tr><td class="bc">pydantic-settings</td><td><span class="ver">2.2.1</span></td><td>All services</td><td>Environment-based config</td></tr>
+<tr><td class="bc">anthropic SDK</td><td><span class="ver">0.26.0</span></td><td>ai-orchestrator, document-service</td><td>Claude API client (async)</td></tr>
+<tr><td class="bc">SQLAlchemy</td><td><span class="ver">2.0.30</span></td><td>steer, skill, auth</td><td>Async ORM</td></tr>
+<tr><td class="bc">asyncpg</td><td><span class="ver">0.29.0</span></td><td>steer, skill, auth</td><td>PostgreSQL async driver</td></tr>
+<tr><td class="bc">Alembic</td><td><span class="ver">1.13.1</span></td><td>steer, skill, auth</td><td>Database migrations</td></tr>
+<tr><td class="bc">redis (aioredis)</td><td><span class="ver">5.0.4</span></td><td>gateway, steer, skill, auth</td><td>Cache + rate limiting (sliding window)</td></tr>
+<tr><td class="bc">aio-pika</td><td><span class="ver">9.4.1</span></td><td>steer, skill, notification</td><td>RabbitMQ async client</td></tr>
+<tr><td class="bc">PyJWT</td><td><span class="ver">2.8.0</span></td><td>gateway, document-service</td><td>JWT encode/decode (HS256)</td></tr>
+<tr><td class="bc">pypdf</td><td><span class="ver">4.2.0</span></td><td>document-service</td><td>PDF text extraction</td></tr>
+<tr><td class="bc">sentence-transformers</td><td><span class="ver">3.0.1</span></td><td>document-service</td><td>all-MiniLM-L6-v2 embeddings (384-dim)</td></tr>
+<tr><td class="bc">chromadb</td><td><span class="ver">0.5.0</span></td><td>document-service</td><td>Vector store for RAG retrieval</td></tr>
+<tr><td class="bc">jsonschema</td><td><span class="ver">4.22.0</span></td><td>document-service</td><td>AI output schema validation</td></tr>
+<tr><td class="bc">structlog</td><td><span class="ver">24.1.0</span></td><td>All services</td><td>Structured JSON logging</td></tr>
+<tr><td class="bc">python-dotenv</td><td><span class="ver">1.0.1</span></td><td>All services</td><td>.env file loading</td></tr>
+<tr><td class="bc">httpx</td><td><span class="ver">0.27.0</span></td><td>All services</td><td>Async HTTP client (inter-service + tests)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 class="sub">Infrastructure &amp; Tooling</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Technology</th><th>Version</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td class="bc">PostgreSQL</td><td><span class="ver">16</span></td><td>Primary relational DB — one logical DB per service</td></tr>
+<tr><td class="bc">Redis</td><td><span class="ver">7-alpine</span></td><td>Cache, rate limiting, session state</td></tr>
+<tr><td class="bc">RabbitMQ</td><td><span class="ver">3.13-management</span></td><td>Domain event bus — TOPIC exchange, durable messages</td></tr>
+<tr><td class="bc">Docker</td><td><span class="ver">Compose 3.9</span></td><td>Local development orchestration</td></tr>
+<tr><td class="bc">Kubernetes</td><td><span class="ver">apps/v1</span></td><td>Production orchestration — replicas, health probes, resources</td></tr>
+<tr><td class="bc">Turborepo</td><td><span class="ver">2.0.0</span></td><td>Monorepo build system — parallel tasks, shared cache</td></tr>
+<tr><td class="bc">Node.js</td><td><span class="ver">≥20.0.0</span></td><td>Frontend build toolchain</td></tr>
+<tr><td class="bc">npm</td><td><span class="ver">≥10.0.0</span></td><td>Package manager</td></tr>
+<tr><td class="bc">GitHub Actions</td><td>—</td><td>CI/CD — unit → integration → nightly security → weekly E2E</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2 class="sub">Test Stack</h2>
+<div class="tw">
+<table>
+<thead><tr><th>Layer</th><th>Technology</th><th>Version</th></tr></thead>
+<tbody>
+<tr><td class="bc">Backend unit/integration</td><td>pytest</td><td><span class="ver">8.2.0</span></td></tr>
+<tr><td class="bc">Async test support</td><td>pytest-asyncio</td><td><span class="ver">0.23.6</span></td></tr>
+<tr><td class="bc">API integration client</td><td>httpx AsyncClient + ASGITransport</td><td><span class="ver">0.27.0</span></td></tr>
+<tr><td class="bc">Coverage</td><td>pytest-cov</td><td><span class="ver">5.0.0</span></td></tr>
+<tr><td class="bc">Mocking</td><td>pytest-mock + unittest.mock.AsyncMock</td><td><span class="ver">3.14.0</span></td></tr>
+<tr><td class="bc">Test data</td><td>factory-boy + Faker</td><td><span class="ver">3.3.0 / 25.2.0</span></td></tr>
+<tr><td class="bc">AI output validation</td><td>jsonschema</td><td><span class="ver">4.22.0</span></td></tr>
+<tr><td class="bc">Performance</td><td>pytest-benchmark</td><td><span class="ver">4.0.0</span></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s7">
+<h1 class="sec">7. Deployment Architecture</h1>
+
+<div class="tw">
+<table>
+<thead><tr><th>Component</th><th>Local (Dev)</th><th>Production</th></tr></thead>
+<tbody>
+<tr><td class="bc">Web Frontend</td><td>npm run dev (Next.js :3000)</td><td>Vercel — Edge CDN, auto-deploy on push to main</td></tr>
+<tr><td class="bc">Mobile</td><td>expo start (Expo Go / Simulator)</td><td>EAS Build → App Store (iOS ≥15.1) + Play Store</td></tr>
+<tr><td class="bc">Backend Services</td><td>docker-compose up (all 7 services)</td><td>Render.com — individual web services per microservice</td></tr>
+<tr><td class="bc">PostgreSQL</td><td>postgres:16-alpine (Docker)</td><td>Render Managed PostgreSQL (or Supabase PostgreSQL)</td></tr>
+<tr><td class="bc">Redis</td><td>redis:7-alpine (Docker)</td><td>Render Managed Redis / Upstash Redis</td></tr>
+<tr><td class="bc">RabbitMQ</td><td>rabbitmq:3.13-management (Docker)</td><td>CloudAMQP / Render internal service</td></tr>
+<tr><td class="bc">File Storage</td><td>Local filesystem (mock)</td><td>Supabase Storage (S3-compatible)</td></tr>
+<tr><td class="bc">Vector Store</td><td>ChromaDB PersistentClient (local)</td><td>ChromaDB HTTP server / pgvector (future)</td></tr>
+<tr><td class="bc">Container Orchestration</td><td>Docker Compose 3.9</td><td>Kubernetes (apps/v1 · replicas: 2 · health probes)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="ib orange">
+<div class="hd">Deployment Commands</div>
+<div class="bd">
+<strong>Local:</strong> <code>npm run services:up</code> (docker-compose)<br>
+<strong>Mobile Dev:</strong> <code>cd apps/mobile && expo start</code><br>
+<strong>Web Dev:</strong> <code>npm run web</code><br>
+<strong>Full Build:</strong> <code>npm run build</code> (Turborepo parallel)<br>
+<strong>Production Mobile:</strong> <code>eas build --platform all</code>
+</div>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s8">
+<h1 class="sec">8. Event Bus &amp; Messaging</h1>
+<p>Domain events travel over RabbitMQ using a <strong>TOPIC exchange</strong> named <code>rambot.events</code>. All messages are durable. The <code>IEventPublisher</code> interface abstracts the broker — in tests, <code>InMemoryEventPublisher</code> captures events for assertion without a real broker.</p>
+
+<div class="tw">
+<table>
+<thead><tr><th>Routing Key</th><th>Producer</th><th>Consumer</th><th>Payload</th></tr></thead>
+<tbody>
+<tr><td class="bc">steer.goal.created</td><td>steer-service</td><td>notification-service</td><td>goal_id, title, owner_id, org_id</td></tr>
+<tr><td class="bc">steer.goal.completed</td><td>steer-service</td><td>notification-service</td><td>goal_id, alignment_score</td></tr>
+<tr><td class="bc">skill.created</td><td>skill-service</td><td>notification-service</td><td>skill_id, name, category</td></tr>
+<tr><td class="bc">skill.gap.detected</td><td>skill-service</td><td>ai-orchestrator</td><td>org_id, gap details</td></tr>
+<tr><td class="bc">document.analysis.done</td><td>document-service (future)</td><td>notification-service</td><td>doc_id, user_id, status</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s9">
+<h1 class="sec">9. Testing Architecture</h1>
+
+<div class="tw">
+<table>
+<thead><tr><th>Layer</th><th>Tests</th><th>LLM Strategy</th><th>Speed</th><th>Run When</th></tr></thead>
+<tbody>
+<tr><td class="bc">Unit — File Validator</td><td>8</td><td>N/A</td><td>&lt;1s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — Document Service</td><td>6</td><td>Supabase mocked</td><td>&lt;2s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — JWT / Security</td><td>7</td><td>N/A</td><td>&lt;1s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — Summarize Chain</td><td>7</td><td>Pre-recorded fixture</td><td>&lt;5s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — Extract Chain</td><td>6</td><td>Pre-recorded fixture</td><td>&lt;5s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — Workflow Chain</td><td>8</td><td>Pre-recorded fixture</td><td>&lt;5s</td><td>Every commit</td></tr>
+<tr><td class="bc">Unit — Embeddings / ChromaDB</td><td>8</td><td>Local model (no API)</td><td>&lt;10s</td><td>Every commit</td></tr>
+<tr><td class="bc">Steer Domain (existing)</td><td>29</td><td>Mocked</td><td>&lt;30s</td><td>Every commit</td></tr>
+<tr><td class="bc">API Integration — Documents</td><td>8</td><td>Monkeypatched</td><td>&lt;30s</td><td>Every PR</td></tr>
+<tr><td class="bc">API Integration — Analyses</td><td>6</td><td>Monkeypatched</td><td>&lt;30s</td><td>Every PR</td></tr>
+<tr><td class="bc">Security — Prompt Injection</td><td>5</td><td>Real Claude</td><td>~5 min</td><td>Nightly</td></tr>
+<tr><td class="bc">Coverage Gate</td><td>—</td><td>—</td><td>—</td><td>Every PR (≥85%)</td></tr>
+</tbody>
+<tfoot><tr><td colspan="5">Total: 98 test cases across document-service (29 Steer tests existing = 127 total). Target: 120+ per blueprint.</td></tr></tfoot>
+</table>
+</div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<section id="s10">
+<h1 class="sec">10. Design Principles</h1>
+
+<div class="tw">
+<table>
+<thead><tr><th>Principle</th><th>Applied Where</th><th>Evidence in Code</th></tr></thead>
+<tbody>
+<tr><td class="bc">Clean Architecture</td><td>All backend services</td><td>domain/ → application/ → infrastructure/ → presentation/ — no upward imports</td></tr>
+<tr><td class="bc">Domain-Driven Design</td><td>steer-service, skill-service</td><td>SteerGoal entity (pure dataclass), AlignmentScore value object (frozen), DomainEvents</td></tr>
+<tr><td class="bc">CQRS</td><td>steer-service, skill-service</td><td>Separate commands/ and queries/ folders in application layer</td></tr>
+<tr><td class="bc">Dependency Inversion (SOLID-D)</td><td>AI chains, services</td><td>SummarizationChain(llm=injected), DocumentService(supabase=injected)</td></tr>
+<tr><td class="bc">Single Responsibility (SOLID-S)</td><td>All modules</td><td>file_validator.py validates only, security.py handles only JWT, each chain does one thing</td></tr>
+<tr><td class="bc">Repository Pattern</td><td>steer-service, skill-service</td><td>Abstract IRepository interface, concrete repo_impl — domain never touches SQLAlchemy directly</td></tr>
+<tr><td class="bc">Feature-Sliced Design</td><td>apps/web</td><td>src/features/steer/, src/features/skill/ — co-located components + store slices</td></tr>
+<tr><td class="bc">API Gateway Pattern</td><td>Infrastructure</td><td>Single entry point handles cross-cutting concerns (auth, rate limit, logging, compression)</td></tr>
+<tr><td class="bc">AI-Native Testing</td><td>document-service tests</td><td>Schema validation over value matching; pre-recorded fixtures; security tests marked separate</td></tr>
+<tr><td class="bc">Event-Driven Architecture</td><td>steer, skill, notification</td><td>RabbitMQ TOPIC exchange; IEventPublisher interface; InMemoryPublisher for tests</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="ib navy">
+<div class="hd">Version Summary</div>
+<div class="bd">
+<strong>Platform:</strong> Python 3.11 · Node.js ≥20 · TypeScript 5.5 (web) / 5.9 (mobile)<br>
+<strong>Frontend:</strong> Next.js 14.2.4 · Expo 54.0 · React Native 0.81.5 · React 18.2/18.3<br>
+<strong>Backend:</strong> FastAPI 0.111.0 · Pydantic 2.7.0 · SQLAlchemy 2.0 · anthropic 0.26.0<br>
+<strong>AI:</strong> claude-sonnet-4-6 · sentence-transformers 3.0.1 · chromadb 0.5.0<br>
+<strong>Data:</strong> PostgreSQL 16 · Redis 7 · RabbitMQ 3.13 · ChromaDB 0.5<br>
+<strong>Infra:</strong> Turborepo 2.0 · Docker Compose 3.9 · Kubernetes apps/v1 · GitHub Actions<br>
+<strong>Deploy:</strong> Vercel (web) · Render (backend) · EAS (mobile → App Store + Play Store)
+</div>
+</div>
+</section>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "fixture_id": "ext_v1_short_contract",
+  "model": "claude-sonnet-4-6",
+  "recorded_at": "2026-04-14T12:00:00Z",
+  "response": {
+    "content": "{\"names\":[\"Acme Corp\",\"John Smith\"],\"dates\":[\"2026-04-01\",\"2026-12-31\"],\"clauses\":[\"Non-disclosure clause Section 4\",\"Termination provisions Section 7\"],\"tasks\":[\"Sign and return agreement by April 30\"],\"risks\":[\"Termination without cause (Section 7)\"]}"
+  }
+}

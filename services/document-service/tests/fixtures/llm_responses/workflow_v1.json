@@ -1,0 +1,9 @@
+{
+  "fixture_id": "wf_v1_short_contract",
+  "model": "claude-sonnet-4-6",
+  "recorded_at": "2026-04-14T12:00:00Z",
+  "response": {
+    "objectives": "Review contract terms with legal counsel.\nSign and return the agreement before April 30.\nNotify finance team of payment schedule in Appendix B.",
+    "content": "[{\"step_number\":1,\"action\":\"Review contract terms with legal counsel\",\"priority\":\"High\"},{\"step_number\":2,\"action\":\"Sign and return agreement before April 30\",\"priority\":\"High\"},{\"step_number\":3,\"action\":\"Notify finance team of payment schedule\",\"priority\":\"Medium\"}]"
+  }
+}
