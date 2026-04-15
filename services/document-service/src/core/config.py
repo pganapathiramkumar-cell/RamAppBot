@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
     NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
 
+    # Cerebras — https://cloud.cerebras.ai (1M tokens/month free, resets monthly)
+    CEREBRAS_API_KEY: str = ""
+    CEREBRAS_MODEL: str = "llama3.1-70b"
+
     # Ollama local — only used when LLM_PROVIDER=ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"
