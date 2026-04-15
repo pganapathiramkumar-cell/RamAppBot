@@ -33,6 +33,14 @@ class CreateSteerGoalRequest(BaseModel):
         }
 
 
+class UpdateSteerGoalRequest(BaseModel):
+    title: Optional[str] = Field(None, min_length=3, max_length=200)
+    description: Optional[str] = Field(None, min_length=10, max_length=2000)
+    priority: Optional[SteerGoalPriority] = None
+    target_date: Optional[datetime] = None
+    success_criteria: Optional[List[str]] = Field(None, max_length=10)
+
+
 class SteerGoalResponse(BaseModel):
     id: UUID
     title: str

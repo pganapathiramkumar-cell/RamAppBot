@@ -156,15 +156,16 @@ async def update_metrics(
     return SkillResponse.from_dto(dto)
 
 
-@router.delete("/{skill_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Deprecate a Skill")
+@router.delete("/{skill_id}", response_model=SkillResponse, summary="Deprecate a Skill")
 async def deprecate_skill(
     skill_id: UUID,
     reason: str = Query("Deprecated by administrator"),
     use_case: DeprecateSkillUseCase = Depends(get_deprecate_use_case),
 ):
     try:
-        await use_case.execute(skill_id, reason=reason)
+        dto = await use_case.execute(skill_id, reason=reason)
     except ValueError as exc:
         detail = str(exc)
         code = status.HTTP_404_NOT_FOUND if "not found" in detail else status.HTTP_422_UNPROCESSABLE_ENTITY
         raise HTTPException(status_code=code, detail=detail)
+    return SkillResponse.from_dto(dto)

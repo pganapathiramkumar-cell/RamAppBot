@@ -21,6 +21,12 @@ class SkillCreated(DomainEvent):
 
 
 @dataclass
+class SkillSubmittedForReview(DomainEvent):
+    skill_id: UUID = None
+    organization_id: UUID = None
+
+
+@dataclass
 class SkillDeployed(DomainEvent):
     skill_id: UUID = None
     organization_id: UUID = None

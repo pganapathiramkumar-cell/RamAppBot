@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RamBot — Architecture & Tech Stack</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 40px 24px 80px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .page-header h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    .page-header p {
+      color: #64748b;
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    /* ── section ── */
+    .section { margin-bottom: 48px; }
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #7c3aed;
+      margin-bottom: 16px;
+      padding-left: 4px;
+    }
+
+    /* ── architecture diagram ── */
+    .arch-diagram {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .arch-layer {
+      background: #111118;
+      padding: 24px 20px;
+    }
+    .arch-layer:hover { background: #141420; }
+    .arch-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 14px;
+    }
+    .arch-label.purple { color: #a78bfa; }
+    .arch-label.blue   { color: #60a5fa; }
+    .arch-label.green  { color: #34d399; }
+    .arch-label.orange { color: #fb923c; }
+    .arch-label.pink   { color: #f472b6; }
+    .arch-label.cyan   { color: #22d3ee; }
+
+    .arch-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .arch-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    .arch-dot.purple { background: #a78bfa; }
+    .arch-dot.blue   { background: #60a5fa; }
+    .arch-dot.green  { background: #34d399; }
+    .arch-dot.orange { background: #fb923c; }
+    .arch-dot.pink   { background: #f472b6; }
+    .arch-dot.cyan   { background: #22d3ee; }
+
+    .arch-item-text strong {
+      display: block;
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    .arch-item-text span {
+      font-size: 0.73rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* ── tech table ── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+    .tech-card {
+      background: #111118;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .tech-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .tech-card-header .badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .badge-backend  { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .badge-frontend { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .badge-mobile   { background: rgba(52,211,153,0.15); color: #34d399; }
+    .badge-infra    { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .badge-ai       { background: rgba(244,114,182,0.15); color: #f472b6; }
+    .badge-devops   { background: rgba(34,211,238,0.15); color: #22d3ee; }
+
+    .tech-card-header h3 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead tr th {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #475569;
+      padding: 8px 18px;
+      text-align: left;
+    }
+    tbody tr {
+      border-top: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+    tbody td {
+      padding: 9px 18px;
+      font-size: 0.78rem;
+      vertical-align: top;
+    }
+    .lib-name {
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #c4b5fd;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .lib-ver {
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #475569;
+      font-size: 0.72rem;
+    }
+    .lib-purpose { color: #94a3b8; line-height: 1.4; }
+
+    /* ── flow arrows ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 20px 24px;
+      background: #111118;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+    }
+    .flow-node {
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a78bfa;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+    }
+    .flow-arrow { color: #334155; font-size: 1rem; }
+
+    @media (max-width: 760px) {
+      .arch-diagram { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>RamBot Platform</h1>
+  <p>Enterprise AI Platform — Architecture, Technology &amp; Library Reference</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ ARCHITECTURE ═════ -->
+<div class="section">
+  <div class="section-title">System Architecture</div>
+  <div class="arch-diagram">
+
+    <div class="arch-layer">
+      <div class="arch-label purple">Client Layer</div>
+      <div class="arch-item">
+        <div class="arch-dot purple"></div>
+        <div class="arch-item-text">
+          <strong>Web App</strong>
+          <span>Next.js 14 — dark-theme SPA deployed on Vercel</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot purple"></div>
+        <div class="arch-item-text">
+          <strong>Mobile App</strong>
+          <span>Expo React Native 54 — iOS &amp; Android via EAS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-layer">
+      <div class="arch-label blue">Gateway / Auth</div>
+      <div class="arch-item">
+        <div class="arch-dot blue"></div>
+        <div class="arch-item-text">
+          <strong>API Gateway</strong>
+          <span>FastAPI — routes, rate limiting, JWT validation</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot blue"></div>
+        <div class="arch-item-text">
+          <strong>Auth Service</strong>
+          <span>Supabase JWT — token issue &amp; verification</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-layer">
+      <div class="arch-label green">Core Services</div>
+      <div class="arch-item">
+        <div class="arch-dot green"></div>
+        <div class="arch-item-text">
+          <strong>Document Service :8006</strong>
+          <span>Upload, OCR, AI analysis pipeline (summary + entities + Mermaid)</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot green"></div>
+        <div class="arch-item-text">
+          <strong>Steer Service :8001</strong>
+          <span>Strategic AI goals — CRUD, lifecycle, alignment scoring</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot green"></div>
+        <div class="arch-item-text">
+          <strong>Skill Service :8002</strong>
+          <span>AI capability catalog — tagging, review, deploy lifecycle</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-layer">
+      <div class="arch-label pink">AI Layer</div>
+      <div class="arch-item">
+        <div class="arch-dot pink"></div>
+        <div class="arch-item-text">
+          <strong>Multi-Provider LLM</strong>
+          <span>Groq → NVIDIA NIM → Cerebras → Mock (auto-fallback on 429)</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot pink"></div>
+        <div class="arch-item-text">
+          <strong>AI Orchestrator</strong>
+          <span>Parallel chain: summary + entity extraction + Mermaid generation</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-layer">
+      <div class="arch-label orange">Data Layer</div>
+      <div class="arch-item">
+        <div class="arch-dot orange"></div>
+        <div class="arch-item-text">
+          <strong>PostgreSQL</strong>
+          <span>Per-service databases via SQLAlchemy async + asyncpg</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot orange"></div>
+        <div class="arch-item-text">
+          <strong>Redis</strong>
+          <span>Query-level cache (60 s TTL) with pattern invalidation on writes</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot orange"></div>
+        <div class="arch-item-text">
+          <strong>ChromaDB</strong>
+          <span>Vector store for document embeddings (document-service)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-layer">
+      <div class="arch-label cyan">Infra / Messaging</div>
+      <div class="arch-item">
+        <div class="arch-dot cyan"></div>
+        <div class="arch-item-text">
+          <strong>RabbitMQ</strong>
+          <span>Domain event bus — steer / skill / document events</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot cyan"></div>
+        <div class="arch-item-text">
+          <strong>Render</strong>
+          <span>Docker container hosting for all FastAPI services</span>
+        </div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-dot cyan"></div>
+        <div class="arch-item-text">
+          <strong>Vercel</strong>
+          <span>Edge-deployed Next.js frontend (CDN + serverless)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ REQUEST FLOW ═════ -->
+<div class="section">
+  <div class="section-title">Request Flow</div>
+  <div class="flow">
+    <span class="flow-node">Browser / Mobile</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">Vercel / CDN</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">API Gateway</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">JWT Verify</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">Microservice</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">Redis Cache</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">PostgreSQL</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">LLM Chain</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node">RabbitMQ Event</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ LIBRARIES ════════ -->
+<div class="section">
+  <div class="section-title">Libraries &amp; Versions</div>
+  <div class="tech-grid">
+
+    <!-- Backend — Core -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-backend">Backend</span>
+        <h3>Python Core</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">fastapi</td><td class="lib-ver">0.111.0</td><td class="lib-purpose">Async REST framework</td></tr>
+          <tr><td class="lib-name">uvicorn</td><td class="lib-ver">0.29.0</td><td class="lib-purpose">ASGI server with hot reload</td></tr>
+          <tr><td class="lib-name">pydantic</td><td class="lib-ver">2.7.0</td><td class="lib-purpose">Request/response schema validation</td></tr>
+          <tr><td class="lib-name">pydantic-settings</td><td class="lib-ver">2.2.1</td><td class="lib-purpose">Env-var config loading</td></tr>
+          <tr><td class="lib-name">structlog</td><td class="lib-ver">24.1.0</td><td class="lib-purpose">Structured JSON logging</td></tr>
+          <tr><td class="lib-name">python-dotenv</td><td class="lib-ver">1.0.1</td><td class="lib-purpose">Load .env files locally</td></tr>
+          <tr><td class="lib-name">httpx</td><td class="lib-ver">0.27.0</td><td class="lib-purpose">Async HTTP client for inter-service calls</td></tr>
+          <tr><td class="lib-name">PyJWT</td><td class="lib-ver">2.8.0</td><td class="lib-purpose">JWT token decode &amp; verify</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Backend — DB -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-backend">Backend</span>
+        <h3>Database &amp; Cache</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">sqlalchemy[asyncio]</td><td class="lib-ver">2.0.30</td><td class="lib-purpose">Async ORM with CQRS pattern</td></tr>
+          <tr><td class="lib-name">asyncpg</td><td class="lib-ver">0.29.0</td><td class="lib-purpose">PostgreSQL async driver</td></tr>
+          <tr><td class="lib-name">alembic</td><td class="lib-ver">1.13.1</td><td class="lib-purpose">Database migration management</td></tr>
+          <tr><td class="lib-name">redis</td><td class="lib-ver">5.0.4</td><td class="lib-purpose">Redis async client for query cache</td></tr>
+          <tr><td class="lib-name">aio-pika</td><td class="lib-ver">9.4.1</td><td class="lib-purpose">RabbitMQ async domain event publishing</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Backend — AI -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-ai">AI</span>
+        <h3>LLM &amp; Document</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">groq</td><td class="lib-ver">0.11.0</td><td class="lib-purpose">Groq cloud LLM — 100K tokens/day free</td></tr>
+          <tr><td class="lib-name">openai</td><td class="lib-ver">1.35.0</td><td class="lib-purpose">NVIDIA NIM &amp; Cerebras (OpenAI-compatible)</td></tr>
+          <tr><td class="lib-name">pypdf</td><td class="lib-ver">4.2.0</td><td class="lib-purpose">PDF text extraction</td></tr>
+          <tr><td class="lib-name">jsonschema</td><td class="lib-ver">4.22.0</td><td class="lib-purpose">Validate structured LLM JSON output</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Frontend — Core -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-frontend">Web</span>
+        <h3>Next.js / React</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">next</td><td class="lib-ver">14.2.4</td><td class="lib-purpose">App Router SSR framework</td></tr>
+          <tr><td class="lib-name">react</td><td class="lib-ver">18.2.0</td><td class="lib-purpose">UI component model</td></tr>
+          <tr><td class="lib-name">react-dom</td><td class="lib-ver">18.2.0</td><td class="lib-purpose">DOM rendering layer</td></tr>
+          <tr><td class="lib-name">typescript</td><td class="lib-ver">5.5.3</td><td class="lib-purpose">Static typing across codebase</td></tr>
+          <tr><td class="lib-name">tailwindcss</td><td class="lib-ver">3.4.4</td><td class="lib-purpose">Utility-first CSS design system</td></tr>
+          <tr><td class="lib-name">axios</td><td class="lib-ver">1.15.0</td><td class="lib-purpose">HTTP requests to backend APIs</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Frontend — State & UI -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-frontend">Web</span>
+        <h3>State &amp; UI</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">@reduxjs/toolkit</td><td class="lib-ver">2.2.5</td><td class="lib-purpose">Global state management</td></tr>
+          <tr><td class="lib-name">react-redux</td><td class="lib-ver">9.1.2</td><td class="lib-purpose">Redux React bindings</td></tr>
+          <tr><td class="lib-name">@tanstack/react-query</td><td class="lib-ver">5.45.0</td><td class="lib-purpose">Server-state fetching &amp; caching</td></tr>
+          <tr><td class="lib-name">react-hook-form</td><td class="lib-ver">7.52.0</td><td class="lib-purpose">Performant form state &amp; validation</td></tr>
+          <tr><td class="lib-name">zod</td><td class="lib-ver">3.23.8</td><td class="lib-purpose">Schema validation for form inputs</td></tr>
+          <tr><td class="lib-name">lucide-react</td><td class="lib-ver">0.395.0</td><td class="lib-purpose">SVG icon set</td></tr>
+          <tr><td class="lib-name">recharts</td><td class="lib-ver">2.12.7</td><td class="lib-purpose">Data visualisation charts</td></tr>
+          <tr><td class="lib-name">mermaid</td><td class="lib-ver">11.14.0</td><td class="lib-purpose">Flowchart rendering from LLM output</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-mobile">Mobile</span>
+        <h3>Expo / React Native</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">expo</td><td class="lib-ver">54.0.33</td><td class="lib-purpose">Managed React Native runtime</td></tr>
+          <tr><td class="lib-name">react-native</td><td class="lib-ver">0.81.5</td><td class="lib-purpose">Cross-platform mobile UI</td></tr>
+          <tr><td class="lib-name">expo-router</td><td class="lib-ver">6.0.23</td><td class="lib-purpose">File-system based navigation</td></tr>
+          <tr><td class="lib-name">react-native-webview</td><td class="lib-ver">13.12.5</td><td class="lib-purpose">Render Mermaid charts via CDN HTML</td></tr>
+          <tr><td class="lib-name">expo-document-picker</td><td class="lib-ver">14.0.8</td><td class="lib-purpose">Native file picker for document upload</td></tr>
+          <tr><td class="lib-name">react-native-reanimated</td><td class="lib-ver">4.1.1</td><td class="lib-purpose">60fps declarative animations</td></tr>
+          <tr><td class="lib-name">expo-haptics</td><td class="lib-ver">15.0.8</td><td class="lib-purpose">Haptic feedback on interactions</td></tr>
+          <tr><td class="lib-name">@react-navigation/native</td><td class="lib-ver">7.1.8</td><td class="lib-purpose">Navigation primitives</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DevOps -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-devops">DevOps</span>
+        <h3>Deployment &amp; Infra</h3>
+      </div>
+      <table>
+        <thead><tr><th>Service</th><th>What</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">Vercel</td><td class="lib-ver">Managed</td><td class="lib-purpose">Next.js frontend — edge CDN + serverless</td></tr>
+          <tr><td class="lib-name">Render</td><td class="lib-ver">Managed</td><td class="lib-purpose">Docker containers for all FastAPI services</td></tr>
+          <tr><td class="lib-name">EAS Build</td><td class="lib-ver">Managed</td><td class="lib-purpose">Expo cloud build for iOS &amp; Android stores</td></tr>
+          <tr><td class="lib-name">GitHub Actions</td><td class="lib-ver">—</td><td class="lib-purpose">CI — lint, test, deploy triggers</td></tr>
+          <tr><td class="lib-name">Docker</td><td class="lib-ver">—</td><td class="lib-purpose">Container image for each microservice</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- AI Providers -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-ai">AI</span>
+        <h3>LLM Providers (Fallback Chain)</h3>
+      </div>
+      <table>
+        <thead><tr><th>Provider</th><th>Model</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">Groq</td><td class="lib-ver">llama-3.1-8b-instant</td><td class="lib-purpose">Primary — 100K tokens/day free (daily reset)</td></tr>
+          <tr><td class="lib-name">NVIDIA NIM</td><td class="lib-ver">meta/llama-3.1-8b</td><td class="lib-purpose">Fallback #1 — 1K free API calls (one-time)</td></tr>
+          <tr><td class="lib-name">Cerebras</td><td class="lib-ver">llama3.1-70b</td><td class="lib-purpose">Fallback #2 — 1M tokens/month free (monthly reset)</td></tr>
+          <tr><td class="lib-name">Mock</td><td class="lib-ver">built-in</td><td class="lib-purpose">Final fallback — regex-based offline extraction</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Testing -->
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-backend">Testing</span>
+        <h3>Test Dependencies</h3>
+      </div>
+      <table>
+        <thead><tr><th>Library</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">pytest</td><td class="lib-ver">8.2.0</td><td class="lib-purpose">Test runner</td></tr>
+          <tr><td class="lib-name">pytest-asyncio</td><td class="lib-ver">0.23.6</td><td class="lib-purpose">Async test support</td></tr>
+          <tr><td class="lib-name">pytest-cov</td><td class="lib-ver">5.0.0</td><td class="lib-purpose">Coverage reporting</td></tr>
+          <tr><td class="lib-name">pytest-mock</td><td class="lib-ver">3.14.0</td><td class="lib-purpose">Mock injection for unit tests</td></tr>
+          <tr><td class="lib-name">Faker</td><td class="lib-ver">25.2.0</td><td class="lib-purpose">Fake data generation for fixtures</td></tr>
+          <tr><td class="lib-name">factory-boy</td><td class="lib-ver">3.3.0</td><td class="lib-purpose">Model factory fixtures</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Design Patterns</div>
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-card-header">
+        <span class="badge badge-backend">Architecture</span>
+        <h3>Backend Patterns</h3>
+      </div>
+      <table>
+        <thead><tr><th>Pattern</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td class="lib-name">Clean Architecture</td><td class="lib-purpose">Domain → Application → Infrastructure → Presentation layers</td></tr>
+          <tr><td class="lib-name">DDD</td><td class="lib-purpose">Domain entities, value objects, domain events per service</td></tr>
+          <tr><td class="lib-name">CQRS</td><td class="lib-purpose">Separate command (write) and query (read) handlers</td></tr>
+          <tr><td class="lib-name">Repository Pattern</td><td class="lib-purpose">IRepository interface + PostgreSQL implementation per service</td></tr>
+          <tr><td class="lib-name">Dependency Injection</td><td class="lib-purpose">FastAPI Depends() wires all singletons into use cases</td></tr>
+          <tr><td class="lib-name">Event Sourcing (light)</td><td class="lib-purpose">Domain events published to RabbitMQ on every state transition</td></tr>
+          <tr><td class="lib-name">Fallback Chain</td><td class="lib-purpose">LLM providers tried in sequence on rate-limit / error</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center; margin-top: 56px; color: #334155; font-size: 0.72rem;">
+  RamBot Platform · Generated 2026-04-16 · Ramkumar
+</div>
+
+</body>
+</html>

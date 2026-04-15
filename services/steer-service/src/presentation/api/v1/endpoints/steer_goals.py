@@ -8,20 +8,26 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.application.commands.steer_commands import CreateSteerGoalCommand, UpdateSteerGoalCommand
 from src.application.queries.get_steer_goals import GetSteerGoalByIdQuery, GetSteerGoalsQuery
 from src.application.use_cases.activate_steer_goal import ActivateSteerGoalUseCase
 from src.application.use_cases.complete_steer_goal import CompleteSteerGoalUseCase
 from src.application.use_cases.create_steer_goal import CreateSteerGoalUseCase
-from src.application.commands.steer_commands import CreateSteerGoalCommand
+from src.application.use_cases.update_steer_goal import UpdateSteerGoalUseCase
 from src.dependencies import (
     get_activate_use_case,
     get_by_id_query,
     get_complete_use_case,
     get_create_use_case,
     get_list_query,
+    get_update_use_case,
 )
 from src.domain.entities.steer_goal import SteerGoalStatus, SteerGoalType
-from src.presentation.schemas.steer_schemas import CreateSteerGoalRequest, SteerGoalResponse
+from src.presentation.schemas.steer_schemas import (
+    CreateSteerGoalRequest,
+    SteerGoalResponse,
+    UpdateSteerGoalRequest,
+)
 
 router = APIRouter()
 
@@ -81,6 +87,29 @@ async def get_steer_goal(
     dto = await query.execute(goal_id)
     if dto is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Goal not found")
+    return SteerGoalResponse.from_dto(dto)
+
+
+@router.patch("/{goal_id}", response_model=SteerGoalResponse, summary="Update a Steer Goal")
+async def update_steer_goal(
+    goal_id: UUID,
+    request: UpdateSteerGoalRequest,
+    use_case: UpdateSteerGoalUseCase = Depends(get_update_use_case),
+):
+    command = UpdateSteerGoalCommand(
+        goal_id=goal_id,
+        title=request.title,
+        description=request.description,
+        priority=request.priority,
+        target_date=request.target_date,
+        success_criteria=request.success_criteria,
+    )
+    try:
+        dto = await use_case.execute(command)
+    except ValueError as exc:
+        detail = str(exc)
+        code = status.HTTP_404_NOT_FOUND if "not found" in detail else status.HTTP_422_UNPROCESSABLE_ENTITY
+        raise HTTPException(status_code=code, detail=detail)
     return SteerGoalResponse.from_dto(dto)
 
 

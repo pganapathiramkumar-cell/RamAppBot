@@ -31,6 +31,16 @@ class CompleteSteerGoalCommand:
 
 
 @dataclass
+class UpdateSteerGoalCommand:
+    goal_id: UUID
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[SteerGoalPriority] = None
+    target_date: Optional[datetime] = None
+    success_criteria: Optional[List[str]] = None
+
+
+@dataclass
 class UpdateAlignmentScoreCommand:
     goal_id: UUID
     score: float

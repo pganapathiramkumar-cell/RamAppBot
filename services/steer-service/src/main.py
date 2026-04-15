@@ -15,6 +15,7 @@ from src.dependencies import (
     init_redis,
     set_rabbitmq_connection,
 )
+
 from src.infrastructure.database.models.steer_goal_model import Base
 from src.presentation.api.v1.endpoints.steer_goals import router as goals_router
 
@@ -46,8 +47,8 @@ async def lifespan(app: FastAPI):
         import src.dependencies as deps
         deps._event_publisher = InMemoryEventPublisher()
 
-    # AI client
-    init_ai_client(settings.OLLAMA_URL, settings.OLLAMA_MODEL)
+    # AI client (multi-provider: Groq → NVIDIA → Cerebras → Mock)
+    init_ai_client()
 
     yield
 

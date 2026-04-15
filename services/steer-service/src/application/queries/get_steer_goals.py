@@ -22,7 +22,11 @@ class GetSteerGoalsQuery:
         limit: int = 50,
         offset: int = 0,
     ) -> List[SteerGoalDTO]:
-        cache_key = f"steer:goals:{organization_id}:{status}:{goal_type}:{limit}:{offset}"
+        # Use explicit 'all' instead of None to avoid "None" string in cache keys
+        status_key = status.value if status else "all"
+        type_key = goal_type.value if goal_type else "all"
+        cache_key = f"steer:goals:{organization_id}:{status_key}:{type_key}:{limit}:{offset}"
+
         cached = await self._cache.get(cache_key)
         if cached:
             return [SteerGoalDTO(**item) for item in cached]

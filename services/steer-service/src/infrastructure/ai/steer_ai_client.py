@@ -1,18 +1,35 @@
 """
-AI Client for Steer Service — local Llama via Ollama.
-
-Computes strategic alignment scores and recommendations without
-any cloud API calls. Ollama must be running locally.
+AI Client for Steer Service.
+Uses the multi-provider LLM fallback chain (Groq → NVIDIA → Cerebras → Mock).
 """
 
 import json
-import ollama
+
+from src.infrastructure.ai.llm_client import LLMClient
+
+
+_ALIGNMENT_SYSTEM = (
+    "You are an Enterprise AI Strategy Advisor. "
+    "Evaluate AI steering goals and return ONLY valid JSON — no markdown, no extra text."
+)
+
+_RECOMMENDATIONS_SYSTEM = (
+    "You are an Enterprise AI Architect. "
+    "Return ONLY a JSON array of strings — no markdown, no extra text."
+)
+
+
+def _strip_fence(raw: str) -> str:
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return raw.strip()
 
 
 class SteerAIClient:
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.2"):
-        self._client = ollama.AsyncClient(host=base_url)
-        self._model = model
+    def __init__(self, llm: LLMClient):
+        self._llm = llm
 
     async def compute_alignment_score(
         self,
@@ -21,39 +38,22 @@ class SteerAIClient:
         success_criteria: list[str],
         organization_context: str,
     ) -> float:
-        """
-        Ask Llama to evaluate how well a steer goal aligns with
-        the organisation's AI strategy. Returns a score 0.0–1.0.
-        """
+        """Score how well a steer goal aligns with the org's AI strategy (0.0–1.0)."""
         criteria_text = "\n".join(f"- {c}" for c in success_criteria)
-        prompt = f"""You are an Enterprise AI Strategy Advisor.
-
-Evaluate the following AI steering goal and return ONLY a JSON object with a single key "score" (float 0.0-1.0).
-1.0 = perfectly aligned, 0.0 = completely misaligned.
-
-Organization Context:
-{organization_context}
-
-Goal Title: {goal_title}
-Goal Description: {goal_description}
-Success Criteria:
-{criteria_text}
-
-Respond with ONLY: {{"score": <float>}}"""
-
-        response = await self._client.chat(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
+        prompt = (
+            f"Organization Context:\n{organization_context}\n\n"
+            f"Goal Title: {goal_title}\n"
+            f"Goal Description: {goal_description}\n"
+            f"Success Criteria:\n{criteria_text}\n\n"
+            f"Return ONLY: {{\"score\": <float 0.0-1.0>}}"
         )
-        raw = response.message.content.strip()
-        # Strip markdown fence if model adds one
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-        result = json.loads(raw)
-        return float(result["score"])
+        raw = await self._llm.ainvoke(prompt, system=_ALIGNMENT_SYSTEM)
+        try:
+            result = json.loads(_strip_fence(raw))
+            score = float(result.get("score", 0.5))
+            return max(0.0, min(1.0, score))
+        except (json.JSONDecodeError, KeyError, ValueError):
+            return 0.5
 
     async def generate_recommendations(
         self,
@@ -61,23 +61,19 @@ Respond with ONLY: {{"score": <float>}}"""
         goal_description: str,
         current_status: str,
     ) -> list[str]:
-        """Generate actionable recommendations to advance a steer goal."""
-        response = await self._client.chat(
-            model=self._model,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"As an Enterprise AI Architect, provide 3-5 actionable recommendations "
-                    f"to advance this AI steering goal.\n\n"
-                    f"Goal: {goal_title}\nDescription: {goal_description}\nStatus: {current_status}\n\n"
-                    f"Return a JSON array of strings: [\"recommendation 1\", ...]"
-                )
-            }],
+        """Generate 3–5 actionable recommendations to advance a steer goal."""
+        prompt = (
+            f"Provide 3-5 actionable recommendations to advance this AI steering goal.\n\n"
+            f"Goal: {goal_title}\n"
+            f"Description: {goal_description}\n"
+            f"Status: {current_status}\n\n"
+            f"Return ONLY a JSON array: [\"recommendation 1\", ...]"
         )
-        raw = response.message.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-        return json.loads(raw)
+        raw = await self._llm.ainvoke(prompt, system=_RECOMMENDATIONS_SYSTEM)
+        try:
+            result = json.loads(_strip_fence(raw))
+            if isinstance(result, list):
+                return [str(r) for r in result]
+            return ["Review goal alignment with strategic objectives."]
+        except (json.JSONDecodeError, ValueError):
+            return ["Review goal alignment with strategic objectives."]

@@ -9,8 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config.settings import settings
 from src.dependencies import (
     close_db,
+    close_redis,
     init_ai_client,
     init_db,
+    init_redis,
     set_rabbitmq_connection,
 )
 from src.infrastructure.database.models.skill_model import Base
@@ -29,6 +31,9 @@ async def lifespan(app: FastAPI):
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Redis
+    init_redis(settings.REDIS_URL)
+
     # RabbitMQ
     try:
         connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
@@ -40,12 +45,13 @@ async def lifespan(app: FastAPI):
         import src.dependencies as deps
         deps._event_publisher = InMemoryEventPublisher()
 
-    # AI client
-    init_ai_client(settings.OLLAMA_URL, settings.OLLAMA_MODEL)
+    # AI client (multi-provider: Groq → NVIDIA → Cerebras → Mock)
+    init_ai_client()
 
     yield
 
     print("[Skill Service] Shutting down")
+    await close_redis()
     await close_db()
 
 

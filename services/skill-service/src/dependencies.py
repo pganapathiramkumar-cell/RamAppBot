@@ -1,6 +1,6 @@
 """
 FastAPI Dependency Injection factories for Skill Service.
-All infrastructure singletons (DB, RabbitMQ) are initialised once
+All infrastructure singletons (DB, Redis, RabbitMQ, LLM) are initialised once
 during the app lifespan and injected into use cases via Depends().
 """
 
@@ -16,7 +16,9 @@ from src.application.use_cases.deploy_skill import DeploySkillUseCase
 from src.application.use_cases.deprecate_skill import DeprecateSkillUseCase
 from src.application.use_cases.submit_skill_for_review import SubmitSkillForReviewUseCase
 from src.application.use_cases.update_skill_metrics import UpdateSkillMetricsUseCase
+from src.infrastructure.ai.llm_client import LLMClient
 from src.infrastructure.ai.skill_ai_client import SkillAIClient
+from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.database.repositories.skill_repo_impl import PostgresSkillRepository
 from src.infrastructure.messaging.event_publisher import IEventPublisher, RabbitMQEventPublisher
 
@@ -25,6 +27,7 @@ from src.infrastructure.messaging.event_publisher import IEventPublisher, Rabbit
 # ---------------------------------------------------------------------------
 _engine: Optional[AsyncEngine] = None
 _session_factory: Optional[async_sessionmaker] = None
+_redis: Optional[RedisCache] = None
 _rabbitmq_connection: Optional[aio_pika.abc.AbstractConnection] = None
 _event_publisher: Optional[IEventPublisher] = None
 _ai_client: Optional[SkillAIClient] = None
@@ -36,20 +39,30 @@ def init_db(database_url: str) -> None:
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False, autoflush=False)
 
 
+def init_redis(redis_url: str) -> None:
+    global _redis
+    _redis = RedisCache(redis_url)
+
+
 def set_rabbitmq_connection(connection: aio_pika.abc.AbstractConnection) -> None:
     global _rabbitmq_connection, _event_publisher
     _rabbitmq_connection = connection
     _event_publisher = RabbitMQEventPublisher(connection)
 
 
-def init_ai_client(ollama_url: str, model: str) -> None:
+def init_ai_client() -> None:
     global _ai_client
-    _ai_client = SkillAIClient(base_url=ollama_url, model=model)
+    _ai_client = SkillAIClient(llm=LLMClient())
 
 
 async def close_db() -> None:
     if _engine:
         await _engine.dispose()
+
+
+async def close_redis() -> None:
+    if _redis:
+        await _redis.close()
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +77,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 def get_event_publisher() -> IEventPublisher:
     return _event_publisher
+
+
+def get_cache() -> RedisCache:
+    return _redis
 
 
 def get_ai_client() -> SkillAIClient:
@@ -91,14 +108,16 @@ async def get_create_use_case(
 
 async def get_skills_query(
     session: AsyncSession = Depends(get_db_session),
+    cache: RedisCache = Depends(get_cache),
 ) -> GetSkillsQuery:
-    return GetSkillsQuery(repository=PostgresSkillRepository(session))
+    return GetSkillsQuery(repository=PostgresSkillRepository(session), cache=cache)
 
 
 async def get_skill_by_id_query(
     session: AsyncSession = Depends(get_db_session),
+    cache: RedisCache = Depends(get_cache),
 ) -> GetSkillByIdQuery:
-    return GetSkillByIdQuery(repository=PostgresSkillRepository(session))
+    return GetSkillByIdQuery(repository=PostgresSkillRepository(session), cache=cache)
 
 
 async def get_search_query(
@@ -110,48 +129,58 @@ async def get_search_query(
 async def get_submit_review_use_case(
     session: AsyncSession = Depends(get_db_session),
     publisher: IEventPublisher = Depends(get_event_publisher),
+    cache: RedisCache = Depends(get_cache),
 ) -> SubmitSkillForReviewUseCase:
     return SubmitSkillForReviewUseCase(
         repository=PostgresSkillRepository(session),
         event_publisher=publisher,
+        cache=cache,
     )
 
 
 async def get_approve_use_case(
     session: AsyncSession = Depends(get_db_session),
     publisher: IEventPublisher = Depends(get_event_publisher),
+    cache: RedisCache = Depends(get_cache),
 ) -> ApproveSkillUseCase:
     return ApproveSkillUseCase(
         repository=PostgresSkillRepository(session),
         event_publisher=publisher,
+        cache=cache,
     )
 
 
 async def get_deploy_use_case(
     session: AsyncSession = Depends(get_db_session),
     publisher: IEventPublisher = Depends(get_event_publisher),
+    cache: RedisCache = Depends(get_cache),
 ) -> DeploySkillUseCase:
     return DeploySkillUseCase(
         repository=PostgresSkillRepository(session),
         event_publisher=publisher,
+        cache=cache,
     )
 
 
 async def get_deprecate_use_case(
     session: AsyncSession = Depends(get_db_session),
     publisher: IEventPublisher = Depends(get_event_publisher),
+    cache: RedisCache = Depends(get_cache),
 ) -> DeprecateSkillUseCase:
     return DeprecateSkillUseCase(
         repository=PostgresSkillRepository(session),
         event_publisher=publisher,
+        cache=cache,
     )
 
 
 async def get_update_metrics_use_case(
     session: AsyncSession = Depends(get_db_session),
     publisher: IEventPublisher = Depends(get_event_publisher),
+    cache: RedisCache = Depends(get_cache),
 ) -> UpdateSkillMetricsUseCase:
     return UpdateSkillMetricsUseCase(
         repository=PostgresSkillRepository(session),
         event_publisher=publisher,
+        cache=cache,
     )

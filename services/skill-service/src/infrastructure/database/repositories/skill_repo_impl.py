@@ -42,6 +42,10 @@ class PostgresSkillRepository(ISkillRepository):
             stmt = stmt.where(SkillModel.category == category)
         if status:
             stmt = stmt.where(SkillModel.status == status)
+        if tags:
+            # Filter rows whose tags array contains ALL requested tags
+            for tag in tags:
+                stmt = stmt.where(SkillModel.tags.contains([tag]))
         stmt = stmt.order_by(SkillModel.created_at.desc()).limit(limit).offset(offset)
         result = await self._session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars().all()]

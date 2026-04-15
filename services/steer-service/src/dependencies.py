@@ -1,6 +1,6 @@
 """
 FastAPI Dependency Injection factories for Steer Service.
-All infrastructure singletons (DB, Redis, RabbitMQ) are initialised once
+All infrastructure singletons (DB, Redis, RabbitMQ, LLM) are initialised once
 during the app lifespan and injected into use cases via Depends().
 """
 
@@ -13,6 +13,8 @@ from src.application.queries.get_steer_goals import GetSteerGoalByIdQuery, GetSt
 from src.application.use_cases.activate_steer_goal import ActivateSteerGoalUseCase
 from src.application.use_cases.complete_steer_goal import CompleteSteerGoalUseCase
 from src.application.use_cases.create_steer_goal import CreateSteerGoalUseCase
+from src.application.use_cases.update_steer_goal import UpdateSteerGoalUseCase
+from src.infrastructure.ai.llm_client import LLMClient
 from src.infrastructure.ai.steer_ai_client import SteerAIClient
 from src.infrastructure.cache.redis_cache import RedisCache
 from src.infrastructure.database.repositories.steer_goal_repo_impl import PostgresSteerGoalRepository
@@ -46,9 +48,9 @@ def set_rabbitmq_connection(connection: aio_pika.abc.AbstractConnection) -> None
     _event_publisher = RabbitMQEventPublisher(connection)
 
 
-def init_ai_client(ollama_url: str, model: str) -> None:
+def init_ai_client() -> None:
     global _ai_client
-    _ai_client = SteerAIClient(base_url=ollama_url, model=model)
+    _ai_client = SteerAIClient(llm=LLMClient())
 
 
 async def close_db() -> None:
@@ -69,11 +71,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with _session_factory() as session:
         async with session.begin():
             yield session
-
-
-def get_repository(session: AsyncSession = None):
-    """Returns a bound repository — used inside composed Depends below."""
-    return PostgresSteerGoalRepository(session)
 
 
 def get_event_publisher() -> IEventPublisher:
@@ -102,6 +99,16 @@ async def get_create_use_case(
     return CreateSteerGoalUseCase(
         repository=PostgresSteerGoalRepository(session),
         event_publisher=publisher,
+    )
+
+
+async def get_update_use_case(
+    session: AsyncSession = Depends(get_db_session),
+    cache: RedisCache = Depends(get_cache),
+) -> UpdateSteerGoalUseCase:
+    return UpdateSteerGoalUseCase(
+        repository=PostgresSteerGoalRepository(session),
+        cache=cache,
     )
 
 

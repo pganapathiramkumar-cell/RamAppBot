@@ -5,7 +5,8 @@ asyncpg==0.29.0
 alembic==1.13.1
 pydantic==2.7.0
 pydantic-settings==2.2.1
-ollama==0.3.3
+groq==0.11.0
+openai==1.35.0
 redis==5.0.4
 aio-pika==9.4.1
 structlog==24.1.0
