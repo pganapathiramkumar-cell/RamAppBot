@@ -19,7 +19,12 @@ class Settings(BaseSettings):
 
     # Groq cloud — https://console.groq.com (free tier, Llama 3 models)
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.1-8b-instant"   # fast; use "llama-3.3-70b-versatile" for better quality
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
+
+    # NVIDIA NIM — https://build.nvidia.com (free credits, OpenAI-compatible)
+    NVIDIA_API_KEY: str = ""
+    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    NVIDIA_MODEL: str = "meta/llama-3.1-8b-instruct"
 
     # Ollama local — only used when LLM_PROVIDER=ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"

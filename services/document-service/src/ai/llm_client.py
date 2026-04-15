@@ -103,6 +103,7 @@ class LLMClient:
 
     LLM_PROVIDER:
       "groq"   — Groq cloud (Llama 3 models, production-ready, free tier)
+      "nvidia" — NVIDIA NIM (OpenAI-compatible, free credits at build.nvidia.com)
       "ollama" — local Ollama daemon (local dev, needs `ollama serve`)
       "mock"   — Python regex analysis (CI/testing only, not real AI)
     """
@@ -110,17 +111,25 @@ class LLMClient:
     def __init__(self, model: str | None = None):
         self.provider = settings.LLM_PROVIDER
         self._groq_client = None
+        self._nvidia_client = None
         self._ollama_client = None
 
         if self.provider == "groq":
             if not settings.GROQ_API_KEY:
-                raise ValueError(
-                    "GROQ_API_KEY is not set. "
-                    "Get a free key at https://console.groq.com and add it to your .env file."
-                )
+                raise ValueError("GROQ_API_KEY is not set.")
             from groq import AsyncGroq
             self._groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
             self._model = model or settings.GROQ_MODEL
+
+        elif self.provider == "nvidia":
+            if not settings.NVIDIA_API_KEY:
+                raise ValueError("NVIDIA_API_KEY is not set.")
+            from openai import AsyncOpenAI
+            self._nvidia_client = AsyncOpenAI(
+                api_key=settings.NVIDIA_API_KEY,
+                base_url=settings.NVIDIA_BASE_URL,
+            )
+            self._model = model or settings.NVIDIA_MODEL
 
         elif self.provider == "ollama":
             import ollama
@@ -156,7 +165,17 @@ class LLMClient:
             response = await self._groq_client.chat.completions.create(
                 model=self._model,
                 messages=messages,
-                temperature=0.1,     # low temp for consistent structured JSON output
+                temperature=0.1,
+                max_tokens=2048,
+            )
+            return LLMResponse(content=response.choices[0].message.content or "")
+
+        # ── NVIDIA NIM ────────────────────────────────────────────────────────
+        if self.provider == "nvidia" and self._nvidia_client:
+            response = await self._nvidia_client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=0.1,
                 max_tokens=2048,
             )
             return LLMResponse(content=response.choices[0].message.content or "")
