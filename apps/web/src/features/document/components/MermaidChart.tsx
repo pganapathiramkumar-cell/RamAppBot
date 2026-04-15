@@ -1,12 +1,13 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   chart: string;
 }
 
-export function MermaidChart({ chart }: Props) {
+function MermaidChartInner({ chart }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +38,6 @@ export function MermaidChart({ chart }: Props) {
 
         if (!cancelled && ref.current) {
           ref.current.innerHTML = svg;
-          // Make SVG responsive
           const svgEl = ref.current.querySelector('svg');
           if (svgEl) {
             svgEl.style.width = '100%';
@@ -71,3 +71,13 @@ export function MermaidChart({ chart }: Props) {
     </div>
   );
 }
+
+// Export with SSR disabled — mermaid is browser-only
+export const MermaidChart = dynamic(() => Promise.resolve(MermaidChartInner), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full bg-white rounded-2xl border border-gray-100 p-6 min-h-[200px] flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
+});
