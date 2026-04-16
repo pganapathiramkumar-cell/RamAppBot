@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RamBot Architecture Workflow Report</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --paper: #ffffff;
+      --ink: #142033;
+      --muted: #5c6b7d;
+      --line: #d8e1eb;
+      --brand: #0f62fe;
+      --brand-2: #14b8a6;
+      --shadow: 0 18px 45px rgba(20, 32, 51, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(15, 98, 254, 0.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(20, 184, 166, 0.10), transparent 25%),
+        var(--bg);
+      color: var(--ink);
+      font: 15px/1.6 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 32px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+    h1, h2, h3 { margin: 0 0 12px; line-height: 1.2; }
+    h1 { font-size: 34px; letter-spacing: -0.03em; }
+    h2 {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 18px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    ul { margin: 8px 0 0 20px; color: var(--muted); }
+    li { margin-bottom: 6px; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .hero-card, .card, .flow-step, .stack-card {
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    .hero-card {
+      padding: 24px;
+      background:
+        linear-gradient(135deg, rgba(15, 98, 254, 0.08), rgba(20, 184, 166, 0.06)),
+        #fbfdff;
+    }
+    .meta {
+      display: grid;
+      gap: 10px;
+      padding: 24px;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid #cfe0ff;
+      background: #eef5ff;
+      color: #1746a2;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .meta-row {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #728196;
+      font-weight: 700;
+    }
+    .value {
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .grid-3, .grid-2, .stack-grid {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stack-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card, .stack-card { padding: 18px; }
+    .card strong, .stack-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 16px;
+    }
+    .architecture-band {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fbfdff, #f5f9fd);
+    }
+    .lane {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .lane.clients { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .lane.services { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .lane.data { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .node {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      min-height: 102px;
+    }
+    .node small {
+      display: inline-block;
+      margin-bottom: 10px;
+      color: #6d7b8d;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .node b {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+    .node p {
+      margin: 0;
+      font-size: 13px;
+    }
+    .arrow-note {
+      margin: 12px 0;
+      text-align: center;
+      color: #45607d;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .workflow {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .flow-step {
+      padding: 18px 18px 16px;
+      border-left: 6px solid var(--brand);
+      background: linear-gradient(90deg, rgba(15, 98, 254, 0.06), transparent 22%), #fff;
+    }
+    .flow-step h3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--brand);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .warn {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid #fbd2a4;
+      background: #fff7ed;
+      color: #8a4b08;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .risk {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6f8095;
+      background: #f8fbfe;
+    }
+    code {
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #eff5fb;
+      color: #17324d;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: #738195;
+      font-size: 13px;
+    }
+    @media (max-width: 980px) {
+      .hero, .grid-3, .grid-2, .stack-grid, .lane.clients, .lane.services, .lane.data {
+        grid-template-columns: 1fr;
+      }
+      .page {
+        margin: 0;
+        border-radius: 0;
+        padding: 20px;
+      }
+    }
+    @media print {
+      body { background: #fff; }
+      .page {
+        box-shadow: none;
+        border: none;
+        margin: 0;
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-card">
+        <h1>RamBot Architecture Workflow Report</h1>
+        <p>
+          Current-state architecture summary derived from the repository structure, runtime manifests,
+          service entrypoints, frontend code, and dependency files present in this workspace on 2026-04-17.
+        </p>
+        <div class="pill-row">
+          <span class="pill">Monorepo: TurboRepo</span>
+          <span class="pill">Web: Next.js 14.2.4</span>
+          <span class="pill">Mobile: Expo 54 / RN 0.81.5</span>
+          <span class="pill">Backend: FastAPI 0.111.0</span>
+          <span class="pill">AI: Groq / NVIDIA / Cerebras / Ollama</span>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="meta-row">
+          <span class="label">Repository</span>
+          <span class="value">rambot-enterprise 1.0.0</span>
+        </div>
+        <div class="meta-row">
+          <span class="label">Node Toolchain</span>
+          <span class="value">Node &gt;= 20.0.0, npm &gt;= 10.0.0, packageManager npm 11.4.2</span>
+        </div>
+        <div class="meta-row">
+          <span class="label">Python Runtimes</span>
+          <span class="value">Python 3.12-slim for most services, Python 3.11-slim for document-service</span>
+        </div>
+        <div class="meta-row">
+          <span class="label">Deployment Model</span>
+          <span class="value">Docker Compose locally, Kubernetes manifests included</span>
+        </div>
+      </div>
+    </section>
+
+    <h2>Solution Shape</h2>
+    <div class="grid-3">
+      <article class="card">
+        <strong>Client Layer</strong>
+        <p>Two frontends exist: <code>apps/web</code> and <code>apps/mobile</code>.</p>
+        <ul>
+          <li>Web uses App Router pages for Steer, Skill, and Documents.</li>
+          <li>Mobile uses Expo Router with tab navigation.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <strong>Domain Services</strong>
+        <p>The backend is split into API Gateway, Steer, Skill, Auth, AI Orchestrator, Notification, and Document Service.</p>
+        <ul>
+          <li>Steer and Skill follow presentation, application, domain, infrastructure layers.</li>
+          <li>Document Service is pipeline-oriented for async PDF analysis.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <strong>Platform Layer</strong>
+        <p>Infrastructure centers on PostgreSQL, Redis, RabbitMQ, Docker Compose, and optional Kubernetes.</p>
+        <ul>
+          <li>Shared TS packages expose API client and types.</li>
+          <li>AI providers are configurable across local and cloud runtimes.</li>
+        </ul>
+      </article>
+    </div>
+
+    <h2>Architecture Workflow</h2>
+    <div class="architecture-band">
+      <div class="lane clients">
+        <div class="node">
+          <small>Client</small>
+          <b>Web App</b>
+          <p>Next.js 14.2.4, React 18.2.0, Redux Toolkit, React Query, Sass, Mermaid, Axios.</p>
+        </div>
+        <div class="node">
+          <small>Client</small>
+          <b>Mobile App</b>
+          <p>Expo 54.0.33, React 19.1.0, React Native 0.81.5, Expo Router, React Navigation.</p>
+        </div>
+        <div class="node">
+          <small>Shared Packages</small>
+          <b>API Contracts</b>
+          <p><code>packages/shared-types</code> and <code>packages/api-client</code> centralize DTOs and JS access.</p>
+        </div>
+      </div>
+      <div class="arrow-note">Web and mobile use the gateway for most domain APIs. The document UI also talks directly to document-service.</div>
+      <div class="lane services">
+        <div class="node">
+          <small>Port 8000</small>
+          <b>API Gateway</b>
+          <p>FastAPI gateway with auth middleware, rate limiting, logging, gzip, CORS, and reverse proxy routes.</p>
+        </div>
+        <div class="node">
+          <small>Port 8001</small>
+          <b>Steer Service</b>
+          <p>Strategic goal management with async SQLAlchemy, Redis cache, RabbitMQ publishing, and AI scoring support.</p>
+        </div>
+        <div class="node">
+          <small>Port 8002</small>
+          <b>Skill Service</b>
+          <p>Skill catalog and lifecycle transitions backed by SQLAlchemy, Redis, RabbitMQ, and AI helper logic.</p>
+        </div>
+        <div class="node">
+          <small>Port 8003</small>
+          <b>Auth Service</b>
+          <p>Auth API scaffold exists, but login/register/refresh/me currently return 501 placeholders.</p>
+        </div>
+        <div class="node">
+          <small>Port 8004</small>
+          <b>AI Orchestrator</b>
+          <p>Dedicated FastAPI service for steer analysis and skill gap analysis via Ollama-backed agents.</p>
+        </div>
+        <div class="node">
+          <small>Ports 8005 / 8006</small>
+          <b>Notification + Document</b>
+          <p>Notification consumes events; Document handles upload, validation, background analysis, and retrieval APIs.</p>
+        </div>
+      </div>
+      <div class="arrow-note">Persistence, caching, and messaging sit behind the services.</div>
+      <div class="lane data">
+        <div class="node">
+          <small>Data</small>
+          <b>PostgreSQL 16-alpine</b>
+          <p>Compose provisions steer, skill, and auth databases. Document code currently uses in-memory storage helpers.</p>
+        </div>
+        <div class="node">
+          <small>Cache</small>
+          <b>Redis 7-alpine</b>
+          <p>Used for rate limiting and service-local caching with separate DB indexes per service.</p>
+        </div>
+        <div class="node">
+          <small>Messaging</small>
+          <b>RabbitMQ 3.13-management-alpine</b>
+          <p>Event broker for publication/consumption. Some services fall back to in-memory publishers if unavailable.</p>
+        </div>
+        <div class="node">
+          <small>AI Runtime</small>
+          <b>Cloud + Local LLM</b>
+          <p>Groq, NVIDIA NIM, Cerebras, and Ollama are supported depending on service and environment settings.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn">
+      Observed implementation nuance: the web document feature uses <code>NEXT_PUBLIC_DOCUMENT_API_URL</code> and calls document-service directly for uploads and analysis polling, while other feature areas use <code>NEXT_PUBLIC_API_URL</code> through the gateway.
+    </div>
+
+    <h2>Primary Workflows</h2>
+    <div class="workflow">
+      <article class="flow-step">
+        <h3><span class="num">1</span>Steer Workflow</h3>
+        <p>Clients send Steer requests to API Gateway, then the gateway proxies them to Steer service.</p>
+        <ul>
+          <li>Gateway applies logging, auth, rate limiting, compression, and CORS.</li>
+          <li>Steer endpoints are fully wired with FastAPI dependency injection.</li>
+          <li>Startup initializes PostgreSQL tables, Redis, RabbitMQ, and an LLM client.</li>
+          <li>LLM fallback chain in Steer is Groq → NVIDIA NIM → Cerebras → mock.</li>
+        </ul>
+      </article>
+
+      <article class="flow-step">
+        <h3><span class="num">2</span>Skill Workflow</h3>
+        <p>Skill traffic also enters through API Gateway and is handled by the Skill service lifecycle workflows.</p>
+        <ul>
+          <li>Supported actions include create, list, search, submit-review, approve, deploy, metrics update, and deprecate.</li>
+          <li>Skill mirrors the same infrastructure pattern as Steer: PostgreSQL, Redis, RabbitMQ, and multi-provider AI fallback.</li>
+        </ul>
+      </article>
+
+      <article class="flow-step">
+        <h3><span class="num">3</span>Document Analysis Workflow</h3>
+        <p>The document feature is the clearest end-to-end async workflow in the repo.</p>
+        <ul>
+          <li>User uploads a PDF from the web app directly to <code>document-service</code> on port 8006.</li>
+          <li>Document Service validates file type, size, and empty input.</li>
+          <li>Upload returns document metadata and starts a FastAPI background task.</li>
+          <li>The background task extracts text and runs three AI chains in parallel: summary, entity extraction, and Mermaid workflow generation.</li>
+          <li>Frontend polls <code>/api/v1/analyses/{id}</code> every 3 seconds until status becomes <code>done</code> or <code>failed</code>.</li>
+        </ul>
+      </article>
+
+      <article class="flow-step">
+        <h3><span class="num">4</span>AI Orchestration Workflow</h3>
+        <p>AI Orchestrator exposes separate endpoints for steer analysis and skill gap analysis.</p>
+        <ul>
+          <li>It creates specialized agents and sends context to Ollama-backed analysis routines.</li>
+          <li>Current orchestrator settings default to <code>OLLAMA_MODEL=llama3.2</code>.</li>
+          <li>Document-service AI does not use the orchestrator; it uses its own provider fallback logic.</li>
+        </ul>
+      </article>
+
+      <article class="flow-step">
+        <h3><span class="num">5</span>Notifications and Events</h3>
+        <p>Notification service is positioned as the event consumer layer.</p>
+        <ul>
+          <li>RabbitMQ is part of the compose stack and notification-service depends on it.</li>
+          <li>Firebase push support is present through <code>firebase-admin==6.5.0</code>.</li>
+          <li>Steer and Skill publish events or fall back to in-memory publishers if the broker is unavailable.</li>
+        </ul>
+      </article>
+    </div>
+
+    <h2>Technology Stack With Versions</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Technology</th>
+          <th>Version</th>
+          <th>Observed Usage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Monorepo</td><td>TurboRepo</td><td><code>^2.0.0</code></td><td>Root build/dev/test orchestration.</td></tr>
+        <tr><td>Node Toolchain</td><td>Node.js / npm</td><td><code>&gt;=20.0.0</code> / <code>&gt;=10.0.0</code></td><td>Root engines; package manager pinned to npm 11.4.2.</td></tr>
+        <tr><td>Web Framework</td><td>Next.js</td><td><code>14.2.4</code></td><td>Web client in <code>apps/web</code>.</td></tr>
+        <tr><td>Web UI</td><td>React / React DOM</td><td><code>18.2.0</code></td><td>Web rendering and App Router pages.</td></tr>
+        <tr><td>Web State</td><td>Redux Toolkit</td><td><code>^2.2.5</code></td><td>Feature stores for steer, skill, document, auth.</td></tr>
+        <tr><td>Web Data</td><td>TanStack React Query</td><td><code>^5.45.0</code></td><td>Available in web dependencies for server-state work.</td></tr>
+        <tr><td>Web Styling</td><td>Sass / Tailwind CSS</td><td><code>^1.77.0</code> / <code>3.4.4</code></td><td>Mixed styling approach in the web app.</td></tr>
+        <tr><td>Web Visualization</td><td>Mermaid / Recharts / XYFlow</td><td><code>11.14.0</code> / <code>^2.12.7</code> / <code>^12.3.6</code></td><td>Diagramming and visual components.</td></tr>
+        <tr><td>HTTP Client</td><td>Axios</td><td><code>^1.15.0</code></td><td>Used by shared API client and some slices.</td></tr>
+        <tr><td>Mobile Framework</td><td>Expo</td><td><code>~54.0.33</code></td><td>Mobile app runtime.</td></tr>
+        <tr><td>Mobile UI</td><td>React / React Native</td><td><code>19.1.0</code> / <code>0.81.5</code></td><td>Mobile client runtime.</td></tr>
+        <tr><td>Mobile Routing</td><td>Expo Router</td><td><code>~6.0.23</code></td><td>File-based mobile navigation.</td></tr>
+        <tr><td>Mobile Navigation</td><td>React Navigation</td><td><code>@react-navigation/native 7.1.8</code></td><td>Tabs and navigation primitives.</td></tr>
+        <tr><td>Backend Framework</td><td>FastAPI</td><td><code>0.111.0</code></td><td>Used by gateway and all Python services.</td></tr>
+        <tr><td>ASGI Server</td><td>Uvicorn</td><td><code>0.29.0</code></td><td>Service runtime.</td></tr>
+        <tr><td>Python Validation</td><td>Pydantic / pydantic-settings</td><td><code>2.7.0</code> / <code>2.2.1</code></td><td>Config and request/response models.</td></tr>
+        <tr><td>ORM</td><td>SQLAlchemy asyncio / asyncpg / Alembic</td><td><code>2.0.30</code> / <code>0.29.0</code> / <code>1.13.1</code></td><td>Steer, Skill, and Auth persistence stack.</td></tr>
+        <tr><td>Cache</td><td>redis Python client / Redis image</td><td><code>5.0.4</code> / <code>7-alpine</code></td><td>Rate limiting and per-service cache.</td></tr>
+        <tr><td>Messaging</td><td>aio-pika / RabbitMQ</td><td><code>9.4.1</code> / <code>3.13-management-alpine</code></td><td>Async event publishing and broker runtime.</td></tr>
+        <tr><td>Database</td><td>PostgreSQL</td><td><code>16-alpine</code></td><td>Compose-managed relational storage.</td></tr>
+        <tr><td>Auth/JWT</td><td>python-jose / PyJWT / passlib[bcrypt]</td><td><code>3.3.0</code> / <code>2.8.0</code> / <code>1.7.4</code></td><td>JWT verification and password hashing dependencies.</td></tr>
+        <tr><td>Observability</td><td>Prometheus / OpenTelemetry / Sentry / structlog</td><td><code>7.0.0</code> / <code>1.24.0</code> / <code>2.1.1</code> / <code>24.1.0</code></td><td>Gateway observability stack.</td></tr>
+        <tr><td>Document Parsing</td><td>pypdf / jsonschema</td><td><code>4.2.0</code> / <code>4.22.0</code></td><td>PDF extraction and structured validation.</td></tr>
+        <tr><td>AI SDKs</td><td>OpenAI SDK / Groq SDK / Ollama Python</td><td><code>1.35.0</code> / <code>0.11.0</code> / <code>0.3.3</code></td><td>Provider integrations across services.</td></tr>
+        <tr><td>Push Notifications</td><td>firebase-admin</td><td><code>6.5.0</code></td><td>Notification provider integration.</td></tr>
+        <tr><td>Container Runtimes</td><td>Python base images</td><td><code>3.12-slim</code> and <code>3.11-slim</code></td><td>Document-service differs from the rest.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Service Inventory</h2>
+    <div class="stack-grid">
+      <article class="stack-card">
+        <strong>API Gateway</strong>
+        <p><code>services/api-gateway</code></p>
+        <p>Routes: auth, steer, skill, document, health.</p>
+        <p>Middleware: auth, rate limit, logging, gzip, CORS.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Steer Service</strong>
+        <p><code>services/steer-service</code></p>
+        <p>Goal CRUD and lifecycle transitions.</p>
+        <p>Uses SQLAlchemy, Redis, RabbitMQ, AI fallback chain.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Skill Service</strong>
+        <p><code>services/skill-service</code></p>
+        <p>Skill CRUD, review, deploy, metrics, deprecate.</p>
+        <p>Mirrors the Steer layered architecture.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Auth Service</strong>
+        <p><code>services/auth-service</code></p>
+        <p>Dependency stack exists, but main REST actions are still stubs returning 501.</p>
+      </article>
+      <article class="stack-card">
+        <strong>AI Orchestrator</strong>
+        <p><code>services/ai-orchestrator</code></p>
+        <p>Dedicated service for steer and skill AI analysis.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Document Service</strong>
+        <p><code>services/document-service</code></p>
+        <p>Upload + async pipeline + poll-based retrieval.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Notification Service</strong>
+        <p><code>services/notification-service</code></p>
+        <p>RabbitMQ-driven notifications with FCM support.</p>
+      </article>
+      <article class="stack-card">
+        <strong>Infrastructure</strong>
+        <p><code>infrastructure/docker</code> and <code>infrastructure/kubernetes</code></p>
+        <p>Compose for local orchestration, K8s manifests for deployment.</p>
+      </article>
+    </div>
+
+    <h2>Implementation Notes and Gaps</h2>
+    <div class="grid-2">
+      <article class="card">
+        <strong>What Is Strong</strong>
+        <ul>
+          <li>Clear service decomposition by domain.</li>
+          <li>Steer and Skill use layered architecture consistently.</li>
+          <li>Frontend is split by features and aligned to domain areas.</li>
+          <li>Document-service has a concrete async processing pattern.</li>
+          <li>Multi-provider AI fallback is already implemented.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <strong>What Looks Transitional</strong>
+        <ul>
+          <li>Auth service endpoints are not yet wired to real use cases.</li>
+          <li>Document feature bypasses the gateway, so ingress is not fully uniform.</li>
+          <li>Document-service currently uses in-memory storage helpers in code.</li>
+          <li>Python base image versions are not fully standardized.</li>
+          <li>Some older architecture markdown is broader than the currently wired implementation.</li>
+        </ul>
+      </article>
+    </div>
+
+    <div class="warn risk">
+      This report reflects the current implementation in code, not only the intended target architecture. The repository contains both implemented flows and planned or stubbed capabilities.
+    </div>
+
+    <p class="footer">
+      Saved as <code>Rambot_Architecture_Workflow_Report.html</code>. Open it in a browser and print to PDF if you need a PDF copy.
+    </p>
+  </main>
+</body>
+</html>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Link from 'next/link';
 import { fetchSteerGoals, SteerGoal } from '../../features/steer/store/steerSlice';
@@ -151,6 +151,73 @@ function GoalRow({ goal }: { goal: SteerGoal }) {
   );
 }
 
+function GoalMobileCard({ goal }: { goal: SteerGoal }) {
+  const prio = PRIORITY_CFG[goal.priority] ?? PRIORITY_CFG.medium;
+  const stat = STATUS_CFG[goal.status] ?? STATUS_CFG.draft;
+  const icon = TYPE_ICONS[goal.goal_type] ?? '📋';
+  const pct = Math.round(goal.ai_alignment_score * 100);
+
+  return (
+    <Link href={`/steer/${goal.id}`} style={{ textDecoration: 'none' }}>
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 18,
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a', lineHeight: 1.4 }}>
+              {goal.title}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+              {goal.description.slice(0, 110)}{goal.description.length > 110 ? '…' : ''}
+            </p>
+          </div>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, background: prio.bg, color: prio.text, padding: '4px 10px', borderRadius: 999 }}>
+            <span style={{ width: 5, height: 5, borderRadius: 3, background: prio.dot, display: 'inline-block' }} />
+            {prio.label}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, background: stat.bg, color: stat.text, padding: '4px 10px', borderRadius: 999 }}>
+            <span style={{ width: 5, height: 5, borderRadius: 3, background: stat.dot, display: 'inline-block' }} />
+            {stat.label}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', padding: '4px 10px', borderRadius: 999 }}>
+            {goal.goal_type}
+          </span>
+          {goal.is_overdue && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, background: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: 999 }}>
+              Overdue
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              AI Alignment
+            </p>
+            <AlignBar score={goal.ai_alignment_score} />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: pct >= 70 ? '#065f46' : pct >= 40 ? '#92400e' : '#991b1b' }}>
+            {pct}%
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 /* ── Table skeleton ─────────────────────────────────────────── */
 function TableSkeleton() {
   return (
@@ -176,6 +243,26 @@ function TableSkeleton() {
           {[70, 60, 70, 90, 50].map((w, j) => (
             <div key={j} style={{ height: 20, borderRadius: 99, background: '#f1f5f9', width: w }} />
           ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MobileGoalSkeleton() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0', padding: 16 }}>
+          <div style={{ height: 12, width: '55%', borderRadius: 6, background: '#f1f5f9', marginBottom: 10 }} />
+          <div style={{ height: 10, width: '88%', borderRadius: 5, background: '#f8fafc', marginBottom: 6 }} />
+          <div style={{ height: 10, width: '72%', borderRadius: 5, background: '#f8fafc', marginBottom: 12 }} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            <div style={{ height: 24, width: 82, borderRadius: 999, background: '#f1f5f9' }} />
+            <div style={{ height: 24, width: 94, borderRadius: 999, background: '#f1f5f9' }} />
+            <div style={{ height: 24, width: 70, borderRadius: 999, background: '#f1f5f9' }} />
+          </div>
+          <div style={{ height: 6, width: '100%', borderRadius: 99, background: '#e2e8f0' }} />
         </div>
       ))}
     </div>
@@ -210,8 +297,19 @@ function EmptyGoals() {
 export default function SteerPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { goals, loading, error } = useSelector((s: RootState) => s.steer);
+  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => { dispatch(fetchSteerGoals('org-123')); }, [dispatch]);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 960);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    document.title = 'Steer AI | RamBot';
+    dispatch(fetchSteerGoals('org-123'));
+  }, [dispatch]);
 
   const avg       = goals.length ? Math.round((goals.reduce((a, g) => a + g.ai_alignment_score, 0) / goals.length) * 100) : 0;
   const active    = goals.filter((g) => g.status === 'active').length;
@@ -263,7 +361,7 @@ export default function SteerPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* ── Metrics ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 16 }}>
           {metrics.map((m) => <MetricCard key={m.label} {...m} />)}
         </div>
 
@@ -295,9 +393,13 @@ export default function SteerPage() {
 
         {/* ── Table ── */}
         {loading ? (
-          <TableSkeleton />
+          isMobile ? <MobileGoalSkeleton /> : <TableSkeleton />
         ) : goals.length === 0 ? (
           <EmptyGoals />
+        ) : isMobile ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
+            {goals.map((goal) => <GoalMobileCard key={goal.id} goal={goal} />)}
+          </div>
         ) : (
           <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0',
                         overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>

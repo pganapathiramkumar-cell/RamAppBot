@@ -29,12 +29,31 @@ export interface Entities {
   risks: string[];
 }
 
+export interface SnapshotEntities {
+  tools: string[];
+  systems: string[];
+  metrics: string[];
+  people: string[];
+  organizations: string[];
+}
+
+export interface DocumentSnapshot {
+  primary_topic: string;
+  secondary_topics: string[];
+  word_count: number;
+  key_ideas: string[];
+  important_entities: SnapshotEntities;
+  relationships: string[];
+  key_concepts: string[];
+}
+
 export interface Analysis {
   document_id: string;
   status: 'pending' | 'processing' | 'done' | 'failed';
-  summary: string;
-  entities: Entities;
-  workflow: WorkflowStep[];
+  snapshot?: DocumentSnapshot;
+  summary?: string;
+  entities?: Entities;
+  workflow?: WorkflowStep[];
   mermaid_chart?: string;
   analysed_at?: string;
 }

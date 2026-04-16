@@ -22,8 +22,12 @@ Read the document carefully and generate a Mermaid TD flowchart that shows the A
 
 Rules:
 - Extract the real structure FROM the document (roles, phases, dates, decisions, milestones)
-- Each node label must be SHORT — 3 to 6 words maximum
-- 5 to 8 nodes total
+- Use the document's real nouns in node labels: people, systems, forms, approvals, deliverables, or milestones
+- Avoid generic labels such as "Review Step", "Process Data", "Final Stage", or "Analysis Complete"
+- Each node label must be concise but specific — 4 to 8 words maximum
+- 4 to 7 nodes total
+- If the document contains a decision, branch, approval gate, or pass/fail condition, show it explicitly
+- Keep the flow faithful to the text; omit steps that are not clearly supported
 - Use graph TD (top-down)
 - Apply style lines to color nodes by importance:
     Critical / high-priority  →  fill:#fee2e2,stroke:#ef4444,color:#991b1b

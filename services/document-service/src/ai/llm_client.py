@@ -81,6 +81,21 @@ def _mock_entities(text: str) -> str:
 
 def _smart_mock(system: str, prompt: str) -> str:
     s = system.lower()
+    if "primary_topic" in s and "important_entities" in s and "relationships" in s:
+        return json.dumps({
+            "primary_topic": "document overview",
+            "secondary_topics": ["key points", "entities", "workflow"],
+            "key_ideas": _sentences(prompt, 4),
+            "important_entities": {
+                "tools": [],
+                "systems": [],
+                "metrics": [],
+                "people": [],
+                "organizations": [],
+            },
+            "relationships": [],
+            "key_concepts": ["document", "summary"],
+        })
     if "names" in s and "dates" in s:
         return _mock_entities(prompt)
     return _mock_summary(prompt)

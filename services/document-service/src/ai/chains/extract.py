@@ -35,8 +35,13 @@ _EXTRACT_SYSTEM = """You are a document analyst. Extract key information from th
   risks   – risks, gaps, or issues that need attention
 
 Rules:
-- Each item must be SHORT and PRECISE — maximum 8 words per item
-- No explanatory sentences — noun phrases or short verb phrases only
+- Each item must be SPECIFIC and PRECISE — maximum 12 words per item
+- Prefer concrete wording from the text over abstract paraphrases
+- tasks must start with a strong action verb and include the object when possible
+- dates should include the actual deadline/date string from the text
+- clauses should name the obligation or condition, not generic labels like "important clause"
+- risks should name the concrete issue or failure mode, not vague warnings
+- No full explanatory sentences — use short action phrases or concise noun phrases
 - Only include items explicitly present in the text; skip empty categories
 - Return ONLY the JSON object, no prose, no markdown fences"""
 
@@ -44,7 +49,9 @@ _MERGE_SYSTEM = """You are a document analyst. Merge extracted entities from mul
 
 Rules:
 - Remove duplicates and near-duplicates — keep the shortest, clearest version
-- Keep each item under 8 words
+- Keep each item under 12 words
+- Keep tasks concrete and action-oriented
+- Prefer items that contain a document-specific noun, role, date, or deliverable
 - Sort by importance — most critical first
 - Return ONLY the JSON object, no prose, no markdown fences"""
 

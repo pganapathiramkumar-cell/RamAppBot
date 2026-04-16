@@ -25,28 +25,28 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
 
       {/* ── Top nav (dark navy — matches DocuMind) ─────────── */}
       <header className="sticky top-0 z-40" style={{ background: '#0f1a2e' }}>
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 sm:h-14 sm:py-0 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 min-w-0">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
               🤖
             </div>
-            <span className="font-bold text-white text-sm tracking-tight">
+            <span className="font-bold text-white text-sm tracking-tight truncate">
               RamBot<span className="font-normal opacity-60">Enterprise AI</span>
             </span>
           </Link>
 
           {/* Nav links */}
-          <nav className="flex items-center gap-1">
+          <nav className="order-3 sm:order-2 w-full sm:w-auto flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
             {NAV.map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-150 ${
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-150 whitespace-nowrap ${
                     isActive ? 'text-white' : 'text-white/50 hover:text-white/80'
                   }`}
                   style={isActive ? { background: '#2563eb' } : {}}
@@ -58,12 +58,12 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="order-2 sm:order-3 flex items-center gap-3 flex-shrink-0">
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/50">
-              <span>Groq · Llama 3.3</span>
+              <span>AI Workspace</span>
               <span className="flex items-center gap-1 text-emerald-400 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Online
+                Ready
               </span>
             </div>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -77,7 +77,7 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
       {/* ── Page header ─────────────────────────────────────── */}
       {title && (
         <div className="bg-white border-b border-slate-100 shadow-xs">
-          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-5 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
             <div>
               {breadcrumb && (
                 <p className="text-xs text-slate-400 mb-0.5 font-semibold uppercase tracking-wider">
@@ -101,9 +101,9 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <footer className="border-t border-slate-200 bg-white mt-auto">
-        <div className="max-w-screen-xl mx-auto px-6 h-11 flex items-center justify-between">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 sm:h-11 sm:py-0 flex items-start sm:items-center justify-between flex-col sm:flex-row gap-1">
           <span className="text-xs text-slate-400">© 2025 RamBot Enterprise</span>
-          <span className="text-xs text-slate-400">Powered by Groq · Llama 3.3</span>
+          <span className="text-xs text-slate-400">Unified AI Workspace</span>
         </div>
       </footer>
     </div>

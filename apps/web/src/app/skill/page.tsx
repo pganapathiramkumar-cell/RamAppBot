@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Link from 'next/link';
 import { fetchSkills, Skill } from '../../features/skill/store/skillSlice';
@@ -162,9 +162,10 @@ function MetricCard({ icon, iconBg, value, label, sub, barPct, barColor }: {
 }
 
 /* ── Skeleton ───────────────────────────────────────────────── */
-function SkillSkeleton() {
+function SkillSkeleton({ viewport }: { viewport: 'mobile' | 'tablet' | 'desktop' }) {
+  const columns = viewport === 'mobile' ? '1fr' : viewport === 'tablet' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: columns, gap: 16 }}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} style={{ background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0',
                               padding: '0 0 18px', overflow: 'hidden' }}>
@@ -215,8 +216,23 @@ function EmptySkills() {
 export default function SkillPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { skills, loading, error } = useSelector((s: RootState) => s.skill);
+  const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
 
-  useEffect(() => { dispatch(fetchSkills('org-123')); }, [dispatch]);
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 768) setViewport('mobile');
+      else if (window.innerWidth < 1200) setViewport('tablet');
+      else setViewport('desktop');
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    document.title = 'Skill AI | RamBot';
+    dispatch(fetchSkills('org-123'));
+  }, [dispatch]);
 
   const deployed  = skills.filter((s) => s.status === 'deployed').length;
   const avgAcc    = skills.length ? Math.round((skills.reduce((a, s) => a + s.accuracy_score, 0) / skills.length) * 100) : 0;
@@ -256,7 +272,7 @@ export default function SkillPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* ── Metric bar ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: viewport === 'mobile' ? '1fr' : viewport === 'tablet' ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16 }}>
           {metrics.map((m) => (
             <MetricCard key={m.label} {...m} />
           ))}
@@ -265,12 +281,12 @@ export default function SkillPage() {
         {/* ── Status filter pills ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 24, justifyContent: 'space-between',
                       flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: viewport === 'desktop' ? 'wrap' : 'nowrap', overflowX: viewport === 'desktop' ? 'visible' : 'auto', width: viewport === 'mobile' ? '100%' : 'auto', paddingBottom: viewport === 'mobile' ? 2 : 0 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#64748b', alignSelf: 'center' }}>Filter:</span>
             {Object.values(STATUS_CFG).map((st) => (
               <span key={st.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
                                             fontWeight: 600, background: st.bg, color: st.text,
-                                            padding: '4px 12px', borderRadius: 99, cursor: 'pointer' }}>
+                                            padding: '4px 12px', borderRadius: 99, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 <span style={{ width: 6, height: 6, borderRadius: 3, background: st.dot, display: 'inline-block' }} />
                 {st.label}
                 <span style={{ opacity: 0.6 }}>
@@ -294,11 +310,11 @@ export default function SkillPage() {
 
         {/* ── Grid ── */}
         {loading ? (
-          <SkillSkeleton />
+          <SkillSkeleton viewport={viewport} />
         ) : skills.length === 0 ? (
           <EmptySkills />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: viewport === 'mobile' ? '1fr' : viewport === 'tablet' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16 }}>
             {skills.map((skill) => <SkillCard key={skill.id} skill={skill} />)}
           </div>
         )}

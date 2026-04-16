@@ -6,8 +6,12 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Rambot Enterprise | Steer & Skill AI Platform',
-  description: 'Enterprise AI Platform for strategic steering and skill management',
+  metadataBase: new URL('http://localhost:3000'),
+  title: {
+    default: 'RamBot Enterprise',
+    template: '%s | RamBot Enterprise',
+  },
+  description: 'Enterprise AI workspace for document intelligence, strategic steering, and skill management.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
