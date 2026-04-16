@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RamBot — Enterprise AI Platform | Ramkumar Palanivel</title>
+<style>
+/* ══════════════════════════════════════════════
+   PRINT / PDF  —  3 × A4 pages
+   To export: File → Print → Save as PDF
+   ══════════════════════════════════════════════ */
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  background: #fff;
+  color: #1e293b;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ─── PAGE SHELL ──────────────────────────────── */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  page-break-after: always;
+  overflow: hidden;
+  position: relative;
+}
+.page:last-child { page-break-after: avoid; }
+
+/* ─── SHARED TOP BAND ────────────────────────��── */
+.top-band {
+  height: 8mm;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 45%, #0ea5e9 100%);
+}
+.bottom-band {
+  height: 6mm;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 45%, #0ea5e9 100%);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+/* ─── TYPOGRAPHY ──────────────────────────────── */
+h1 { font-size: 26pt; font-weight: 800; letter-spacing: -0.5px; }
+h2 { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+h3 { font-size: 10pt; font-weight: 700; }
+p, li, td, th { font-size: 8.5pt; line-height: 1.5; }
+
+/* ─── COLOUR TOKENS ───────────────────────────── */
+.purple  { color: #6d28d9; }
+.blue    { color: #0369a1; }
+.green   { color: #047857; }
+.orange  { color: #b45309; }
+.pink    { color: #be185d; }
+.gray    { color: #475569; }
+.indigo  { color: #4338ca; }
+
+.bg-purple  { background: #ede9fe; }
+.bg-blue    { background: #e0f2fe; }
+.bg-green   { background: #d1fae5; }
+.bg-orange  { background: #fef3c7; }
+.bg-pink    { background: #fce7f3; }
+.bg-indigo  { background: #e0e7ff; }
+.bg-slate   { background: #f1f5f9; }
+.bg-dark    { background: #0f172a; }
+
+/* ══════════════════════════════════════════════════════
+   PAGE 1 — Cover + Platform Overview
+   ══════════════════════════════════════════════════════ */
+.p1-body { padding: 10mm 14mm 18mm; }
+
+.p1-cover {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0c1a3d 100%);
+  border-radius: 8px;
+  padding: 10mm 10mm 8mm;
+  margin-bottom: 6mm;
+  position: relative;
+  overflow: hidden;
+}
+.p1-cover::after {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,40,217,0.4) 0%, transparent 70%);
+}
+
+.cover-eyebrow {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #818cf8;
+  margin-bottom: 3mm;
+}
+.cover-title {
+  font-size: 28pt;
+  font-weight: 900;
+  background: linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 1mm;
+}
+.cover-sub {
+  font-size: 10pt;
+  color: #94a3b8;
+  margin-bottom: 5mm;
+}
+.cover-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cbadge {
+  font-size: 7pt;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.cbadge-purple { background: rgba(109,40,217,0.3); color: #c4b5fd; border: 1px solid rgba(109,40,217,0.5); }
+.cbadge-blue   { background: rgba(14,165,233,0.25); color: #7dd3fc; border: 1px solid rgba(14,165,233,0.4); }
+.cbadge-green  { background: rgba(16,185,129,0.25); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+
+.cover-meta {
+  margin-top: 5mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.cover-author { color: #e2e8f0; font-size: 9pt; font-weight: 700; }
+.cover-date   { color: #64748b; font-size: 7.5pt; }
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3mm;
+  margin-bottom: 6mm;
+}
+.stat-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3mm;
+  text-align: center;
+}
+.stat-num {
+  font-size: 16pt;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 1mm;
+}
+.stat-label { font-size: 6.5pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+
+/* ── ARCH GRID ── */
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3mm;
+  margin-bottom: 5mm;
+}
+.arch-box {
+  border-radius: 6px;
+  padding: 3.5mm;
+  border: 1px solid rgba(0,0,0,0.07);
+}
+.arch-box-title {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 2.5mm;
+}
+.arch-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+.arch-dot-sm {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.arch-line strong { font-size: 8pt; font-weight: 600; display: block; }
+.arch-line span   { font-size: 7pt; color: #64748b; }
+
+/* ── RAG PIPELINE ── */
+.rag-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 3mm 4mm;
+  margin-bottom: 4mm;
+}
+.rag-step {
+  flex: 1;
+  text-align: center;
+  padding: 2mm 1mm;
+  border-radius: 4px;
+  font-size: 7pt;
+  font-weight: 700;
+}
+.rag-arrow {
+  font-size: 9pt;
+  color: #94a3b8;
+  padding: 0 1mm;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════
+   PAGE 2 — AI/ML + Data Stack
+   ══════════════════════════════════════════════════════ */
+.p2-body { padding: 8mm 14mm 18mm; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 4mm;
+  margin-bottom: 4mm;
+}
+.section-pill {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.section-title-text { font-size: 11pt; font-weight: 800; color: #0f172a; }
+.section-line { flex: 1; height: 1px; background: #e2e8f0; }
+.mb4 { margin-bottom: 4mm; }
+.mb5 { margin-bottom: 5mm; }
+
+/* ── STACK TABLE ── */
+.stack-table { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
+.stack-table th {
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2.5mm 3mm;
+  text-align: left;
+}
+.stack-table th:first-child { border-radius: 4px 0 0 4px; }
+.stack-table th:last-child  { border-radius: 0 4px 4px 0; }
+.stack-table td {
+  padding: 2mm 3mm;
+  font-size: 8pt;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.stack-table tr:last-child td { border-bottom: none; }
+.stack-table tr:hover td { background: #f8fafc; }
+.mono { font-family: 'Consolas', 'Courier New', monospace; }
+.ver-badge {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 7pt;
+  font-family: monospace;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.tag {
+  display: inline-block;
+  font-size: 6.5pt;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── TWO COLS ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 5mm; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; margin-bottom: 4mm; }
+
+/* ── CARD ── */
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.card-head {
+  padding: 2.5mm 4mm;
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.card-body { padding: 3mm 4mm; }
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5mm 0;
+  border-bottom: 1px solid #f8fafc;
+  gap: 4mm;
+}
+.card-row:last-child { border-bottom: none; }
+.card-key { font-size: 8pt; font-weight: 600; font-family: monospace; color: #3730a3; flex-shrink: 0; }
+.card-val { font-size: 7.5pt; color: #475569; text-align: right; flex: 1; }
+
+/* ── LLM CHAIN ── */
+.llm-chain {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4mm;
+}
+.llm-provider {
+  flex: 1;
+  padding: 3mm 3mm 2.5mm;
+  text-align: center;
+  border-right: 1px solid #e2e8f0;
+  position: relative;
+}
+.llm-provider:last-child { border-right: none; }
+.llm-num {
+  font-size: 7pt;
+  font-weight: 900;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin-bottom: 1.5mm;
+}
+.llm-name  { font-size: 8.5pt; font-weight: 700; display: block; margin-bottom: 0.5mm; }
+.llm-model { font-size: 6.5pt; color: #64748b; font-family: monospace; display: block; margin-bottom: 1mm; }
+.llm-note  { font-size: 6pt; color: #94a3b8; }
+
+/* ══════════════════════════════════════════════════════
+   PAGE 3 — Infra, Testing, Patterns, LinkedIn Summary
+   ══════════════════════════════════════════════════════ */
+.p3-body { padding: 8mm 14mm 18mm; }
+
+/* ── PATTERN BOX ── */
+.pattern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-bottom: 4mm; }
+.pattern-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #6d28d9;
+  border-radius: 0 4px 4px 0;
+  padding: 2.5mm 3.5mm;
+}
+.pattern-name { font-size: 8.5pt; font-weight: 700; color: #0f172a; margin-bottom: 0.5mm; }
+.pattern-desc { font-size: 7.5pt; color: #475569; }
+
+/* ── TEST PYRAMID ── */
+.test-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 3mm; margin-bottom: 4mm; }
+.test-box {
+  border-radius: 6px;
+  padding: 3mm;
+  border: 1px solid rgba(0,0,0,0.08);
+  text-align: center;
+}
+.test-box-title { font-size: 8pt; font-weight: 700; margin-bottom: 1mm; }
+.test-box-libs  { font-size: 7pt; color: #475569; font-family: monospace; }
+
+/* ── K8S SPEC ── */
+.k8s-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-bottom: 4mm; }
+.k8s-box {
+  background: #0f172a;
+  border-radius: 6px;
+  padding: 3mm 4mm;
+  color: #e2e8f0;
+}
+.k8s-title { font-size: 7.5pt; font-weight: 700; color: #818cf8; margin-bottom: 2mm; text-transform: uppercase; letter-spacing: 1px; }
+.k8s-line { font-size: 7pt; font-family: monospace; color: #94a3b8; margin-bottom: 1mm; }
+.k8s-line span { color: #a78bfa; }
+.k8s-line em   { color: #6ee7b7; font-style: normal; }
+
+/* ── LINKEDIN CARD ── */
+.linkedin-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  border-radius: 8px;
+  padding: 6mm 8mm;
+  color: #f1f5f9;
+  margin-top: 3mm;
+}
+.li-headline { font-size: 12pt; font-weight: 800; color: #a78bfa; margin-bottom: 2mm; }
+.li-body { font-size: 8pt; color: #cbd5e1; line-height: 1.6; margin-bottom: 3mm; }
+.li-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.li-skill {
+  font-size: 7pt;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(99,102,241,0.2);
+  border: 1px solid rgba(99,102,241,0.35);
+  color: #a5b4fc;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════════════════════
+     ║  PAGE 1 — Platform Overview + Architecture
+     ╚══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="top-band"></div>
+  <div class="p1-body">
+
+    <!-- Cover Card -->
+    <div class="p1-cover">
+      <div class="cover-eyebrow">Enterprise AI Platform · Portfolio</div>
+      <div class="cover-title">RamBot</div>
+      <div class="cover-sub">Multi-Tenant Enterprise AI Platform — Document Intelligence, Strategic Goal Management &amp; Skill Orchestration</div>
+      <div class="cover-badges">
+        <span class="cbadge cbadge-purple">Microservices</span>
+        <span class="cbadge cbadge-blue">RAG Pipeline</span>
+        <span class="cbadge cbadge-blue">AI Orchestrator</span>
+        <span class="cbadge cbadge-green">Vector DB</span>
+        <span class="cbadge cbadge-purple">Clean Architecture</span>
+        <span class="cbadge cbadge-blue">CQRS + DDD</span>
+        <span class="cbadge cbadge-green">Docker + K8s</span>
+        <span class="cbadge cbadge-purple">Multi-Provider LLM</span>
+        <span class="cbadge cbadge-blue">Next.js 14</span>
+        <span class="cbadge cbadge-green">React Native (Expo)</span>
+      </div>
+      <div class="cover-meta">
+        <div>
+          <div class="cover-author">Ramkumar Palanivel</div>
+          <div class="cover-date" style="color:#94a3b8;font-size:7.5pt;">Enterprise AI Architect · Full-Stack · MLOps</div>
+        </div>
+        <div class="cover-date">April 2026</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num purple">7</div>
+        <div class="stat-label">Microservices</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num blue">3</div>
+        <div class="stat-label">LLM Providers</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num green">2</div>
+        <div class="stat-label">Client Platforms</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num orange">4</div>
+        <div class="stat-label">Arch Patterns</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num pink">∞</div>
+        <div class="stat-label">Fallback Chain</div>
+      </div>
+    </div>
+
+    <!-- Architecture Grid -->
+    <div style="font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#6d28d9;margin-bottom:3mm;">System Architecture — Layer View</div>
+    <div class="arch-grid">
+
+      <div class="arch-box bg-indigo">
+        <div class="arch-box-title indigo">Client Layer</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#4f46e5;"></div>
+          <div><strong>Web App</strong><span>Next.js 14.2 · TypeScript 5.5 · Vercel CDN</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#4f46e5;"></div>
+          <div><strong>Mobile App</strong><span>Expo 54 · React Native 0.81 · EAS Build</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#818cf8;"></div>
+          <div><strong>State</strong><span>Redux Toolkit 2.2 · React Query 5.45</span></div>
+        </div>
+      </div>
+
+      <div class="arch-box bg-blue">
+        <div class="arch-box-title blue">Gateway / Auth</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#0369a1;"></div>
+          <div><strong>API Gateway :8000</strong><span>FastAPI · JWT verify · Rate limiting · Routing</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#0369a1;"></div>
+          <div><strong>Auth Service :8003</strong><span>Supabase JWT · PyJWT 2.8 · Redis session</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#0ea5e9;"></div>
+          <div><strong>Notification :8005</strong><span>RabbitMQ consumer · Event-driven alerts</span></div>
+        </div>
+      </div>
+
+      <div class="arch-box bg-green">
+        <div class="arch-box-title green">Core Services</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#047857;"></div>
+          <div><strong>Document Service :8006</strong><span>PDF→OCR→RAG Pipeline → Mermaid chart</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#047857;"></div>
+          <div><strong>Steer Service :8001</strong><span>Strategic AI goals · CQRS · Alignment score</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#059669;"></div>
+          <div><strong>Skill Service :8002</strong><span>AI catalog · Auto-tag · Review lifecycle</span></div>
+        </div>
+      </div>
+
+      <div class="arch-box bg-pink">
+        <div class="arch-box-title pink">AI / Intelligence</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#be185d;"></div>
+          <div><strong>AI Orchestrator :8004</strong><span>Multi-agent chains · SteerAgent · SkillAgent</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#be185d;"></div>
+          <div><strong>LLM Fallback Chain</strong><span>Groq → NVIDIA NIM → Cerebras → Mock</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#db2777;"></div>
+          <div><strong>Embedding + Vector</strong><span>ChromaDB · Sentence Transformers · RAG retrieval</span></div>
+        </div>
+      </div>
+
+      <div class="arch-box bg-orange">
+        <div class="arch-box-title orange">Data Layer</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#b45309;"></div>
+          <div><strong>PostgreSQL 16</strong><span>SQLAlchemy 2.0 async · asyncpg 0.29 · Alembic</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#b45309;"></div>
+          <div><strong>Redis 7</strong><span>Query cache 60s TTL · Pattern invalidation</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#d97706;"></div>
+          <div><strong>ChromaDB</strong><span>Persistent vector store · Document embeddings</span></div>
+        </div>
+      </div>
+
+      <div class="arch-box" style="background:#f0fdf4;">
+        <div class="arch-box-title" style="color:#166534;">Infra / DevOps</div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#166534;"></div>
+          <div><strong>Docker Compose</strong><span>Full local stack · 7 services + 3 infra</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#166534;"></div>
+          <div><strong>Kubernetes</strong><span>Deployments · Services · Health probes · HPA</span></div>
+        </div>
+        <div class="arch-line">
+          <div class="arch-dot-sm" style="background:#15803d;"></div>
+          <div><strong>Render + Vercel</strong><span>Auto-deploy from GitHub · Docker containers</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RAG Pipeline -->
+    <div style="font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#6d28d9;margin-bottom:2.5mm;">RAG Pipeline — Document Intelligence Flow</div>
+    <div class="rag-flow">
+      <div class="rag-step bg-indigo indigo">📄 PDF Upload<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">pypdf 4.2</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-blue blue">✂️ Text Chunking<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">sliding window</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-purple purple">🔢 Embedding<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">Sentence Transformers</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-orange orange">🗄️ Vector Store<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">ChromaDB</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-green green">🔍 Retrieval<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">cosine similarity</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-pink pink">🤖 LLM Generate<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">Groq / NVIDIA</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step" style="background:#f0fdf4;color:#166534;">📊 Output<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">Summary+Mermaid</span></div>
+    </div>
+
+  </div>
+  <div class="bottom-band"></div>
+</div>
+
+
+<!-- ╔══════════════════════════════════════════════════════════
+     ║  PAGE 2 — Full Technical Stack
+     ╚══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="top-band"></div>
+  <div class="p2-body">
+
+    <!-- LLM Fallback Chain -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-pink pink">AI Layer</span>
+      <span class="section-title-text">Multi-Provider LLM Fallback Chain</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="llm-chain mb5">
+      <div class="llm-provider bg-indigo">
+        <div class="llm-num" style="background:#4f46e5;">1</div>
+        <span class="llm-name indigo">Groq Cloud</span>
+        <span class="llm-model">llama-3.1-8b-instant</span>
+        <span class="llm-note">Primary · 100K tokens/day · Daily reset</span>
+      </div>
+      <div class="llm-provider bg-green">
+        <div class="llm-num" style="background:#047857;">2</div>
+        <span class="llm-name green">NVIDIA NIM</span>
+        <span class="llm-model">meta/llama-3.1-8b-instruct</span>
+        <span class="llm-note">Fallback #1 · OpenAI-compatible API</span>
+      </div>
+      <div class="llm-provider bg-orange">
+        <div class="llm-num" style="background:#b45309;">3</div>
+        <span class="llm-name orange">Cerebras</span>
+        <span class="llm-model">llama3.1-70b</span>
+        <span class="llm-note">Fallback #2 · 1M tokens/month</span>
+      </div>
+      <div class="llm-provider bg-slate">
+        <div class="llm-num" style="background:#475569;">4</div>
+        <span class="llm-name gray">Smart Mock</span>
+        <span class="llm-model">regex + NLP built-in</span>
+        <span class="llm-note">Final fallback · No API key needed</span>
+      </div>
+    </div>
+
+    <!-- Python Stack -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-indigo indigo">Backend</span>
+      <span class="section-title-text">Python Stack — All Services (Python 3.11 / 3.12)</span>
+      <div class="section-line"></div>
+    </div>
+    <table class="stack-table">
+      <thead>
+        <tr>
+          <th style="width:22%">Library</th>
+          <th style="width:13%">Version</th>
+          <th style="width:15%">Category</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">fastapi</td><td><span class="ver-badge">0.111.0</span></td><td><span class="tag bg-indigo indigo">Framework</span></td><td>Async REST framework with OpenAPI auto-docs</td></tr>
+        <tr><td class="mono">uvicorn[standard]</td><td><span class="ver-badge">0.29.0</span></td><td><span class="tag bg-indigo indigo">Server</span></td><td>ASGI server · 2 workers per service in production</td></tr>
+        <tr><td class="mono">pydantic</td><td><span class="ver-badge">2.7.0</span></td><td><span class="tag bg-blue blue">Validation</span></td><td>Request/response schema validation + serialisation</td></tr>
+        <tr><td class="mono">pydantic-settings</td><td><span class="ver-badge">2.2.1</span></td><td><span class="tag bg-blue blue">Config</span></td><td>12-factor app env-var config with .env fallback</td></tr>
+        <tr><td class="mono">sqlalchemy[asyncio]</td><td><span class="ver-badge">2.0.30</span></td><td><span class="tag bg-orange orange">ORM / DB</span></td><td>Async ORM — Repository pattern + CQRS read/write split</td></tr>
+        <tr><td class="mono">asyncpg</td><td><span class="ver-badge">0.29.0</span></td><td><span class="tag bg-orange orange">DB Driver</span></td><td>High-performance async PostgreSQL driver</td></tr>
+        <tr><td class="mono">alembic</td><td><span class="ver-badge">1.13.1</span></td><td><span class="tag bg-orange orange">Migration</span></td><td>Database schema migration management</td></tr>
+        <tr><td class="mono">redis</td><td><span class="ver-badge">5.0.4</span></td><td><span class="tag bg-green green">Cache</span></td><td>Async Redis — query cache with pattern invalidation</td></tr>
+        <tr><td class="mono">aio-pika</td><td><span class="ver-badge">9.4.1</span></td><td><span class="tag bg-green green">Messaging</span></td><td>RabbitMQ async AMQP — domain event publishing</td></tr>
+        <tr><td class="mono">groq</td><td><span class="ver-badge">0.11.0</span></td><td><span class="tag bg-pink pink">AI / LLM</span></td><td>Groq cloud SDK — primary LLM provider</td></tr>
+        <tr><td class="mono">openai</td><td><span class="ver-badge">1.35.0</span></td><td><span class="tag bg-pink pink">AI / LLM</span></td><td>OpenAI-compat SDK for NVIDIA NIM + Cerebras</td></tr>
+        <tr><td class="mono">pypdf</td><td><span class="ver-badge">4.2.0</span></td><td><span class="tag bg-pink pink">AI / Doc</span></td><td>PDF text extraction for RAG ingestion pipeline</td></tr>
+        <tr><td class="mono">chromadb</td><td><span class="ver-badge">0.5.x</span></td><td><span class="tag bg-purple purple">Vector DB</span></td><td>Persistent vector store — embedding search &amp; retrieval</td></tr>
+        <tr><td class="mono">httpx</td><td><span class="ver-badge">0.27.0</span></td><td><span class="tag bg-blue blue">HTTP</span></td><td>Async HTTP client for inter-service communication</td></tr>
+        <tr><td class="mono">PyJWT</td><td><span class="ver-badge">2.8.0</span></td><td><span class="tag bg-blue blue">Auth</span></td><td>JWT decode and Supabase token verification</td></tr>
+        <tr><td class="mono">structlog</td><td><span class="ver-badge">24.1.0</span></td><td><span class="tag bg-slate gray">Observability</span></td><td>Structured JSON logs with request context binding</td></tr>
+        <tr><td class="mono">pytest + asyncio</td><td><span class="ver-badge">8.2 / 0.23</span></td><td><span class="tag bg-green green">Testing</span></td><td>Async unit + integration test suite with fixtures</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Frontend + Mobile -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-blue blue">Frontend</span>
+      <span class="section-title-text">npm / Node Stack — Web &amp; Mobile</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="two-col">
+      <table class="stack-table" style="margin-bottom:0;">
+        <thead><tr><th>Package</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">next</td><td><span class="ver-badge">14.2.4</span></td><td>App Router SSR + static gen</td></tr>
+          <tr><td class="mono">react / react-dom</td><td><span class="ver-badge">18.2.0</span></td><td>UI component model</td></tr>
+          <tr><td class="mono">typescript</td><td><span class="ver-badge">5.5.3</span></td><td>Static typing across codebase</td></tr>
+          <tr><td class="mono">tailwindcss</td><td><span class="ver-badge">3.4.4</span></td><td>Utility-first CSS system</td></tr>
+          <tr><td class="mono">@reduxjs/toolkit</td><td><span class="ver-badge">2.2.5</span></td><td>Global client state</td></tr>
+          <tr><td class="mono">@tanstack/react-query</td><td><span class="ver-badge">5.45.0</span></td><td>Server-state fetch + cache</td></tr>
+          <tr><td class="mono">react-hook-form + zod</td><td><span class="ver-badge">7.52 / 3.23</span></td><td>Form state + schema validation</td></tr>
+          <tr><td class="mono">mermaid</td><td><span class="ver-badge">11.14.0</span></td><td>Flowchart render (SSR-disabled)</td></tr>
+          <tr><td class="mono">recharts</td><td><span class="ver-badge">2.12.7</span></td><td>Analytics data visualisation</td></tr>
+          <tr><td class="mono">axios</td><td><span class="ver-badge">1.15.0</span></td><td>HTTP client to backend APIs</td></tr>
+        </tbody>
+      </table>
+      <table class="stack-table" style="margin-bottom:0;">
+        <thead><tr><th>Package</th><th>Version</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">expo</td><td><span class="ver-badge">54.0.33</span></td><td>Managed React Native runtime</td></tr>
+          <tr><td class="mono">react-native</td><td><span class="ver-badge">0.81.5</span></td><td>iOS + Android native UI</td></tr>
+          <tr><td class="mono">expo-router</td><td><span class="ver-badge">6.0.23</span></td><td>File-system navigation</td></tr>
+          <tr><td class="mono">react-native-webview</td><td><span class="ver-badge">13.12.5</span></td><td>Mermaid chart in mobile</td></tr>
+          <tr><td class="mono">expo-document-picker</td><td><span class="ver-badge">14.0.8</span></td><td>Native file picker</td></tr>
+          <tr><td class="mono">react-native-reanimated</td><td><span class="ver-badge">4.1.1</span></td><td>60fps declarative animations</td></tr>
+          <tr><td class="mono">expo-haptics</td><td><span class="ver-badge">15.0.8</span></td><td>Haptic feedback on tap</td></tr>
+          <tr><td class="mono">lucide-react</td><td><span class="ver-badge">0.395.0</span></td><td>SVG icon set</td></tr>
+          <tr><td class="mono">clsx + tailwind-merge</td><td><span class="ver-badge">2.1 / 2.3</span></td><td>Class composition utilities</td></tr>
+          <tr><td class="mono">EAS Build</td><td><span class="ver-badge">managed</span></td><td>Cloud build for App/Play Store</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+  <div class="bottom-band"></div>
+</div>
+
+
+<!-- ╔══════════════════════════════════════════════════════════
+     ║  PAGE 3 — Patterns, Docker/K8s, Testing, LinkedIn
+     ╚══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="top-band"></div>
+  <div class="p3-body">
+
+    <!-- Enterprise Patterns -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-purple purple">Architecture</span>
+      <span class="section-title-text">Enterprise Design Patterns Implemented</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="pattern-grid mb5">
+      <div class="pattern-item">
+        <div class="pattern-name">Clean Architecture (Hexagonal)</div>
+        <div class="pattern-desc">Domain → Application → Infrastructure → Presentation. All services follow strict layer isolation with dependency inversion.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">CQRS — Command Query Responsibility Segregation</div>
+        <div class="pattern-desc">Write paths (commands) separated from read paths (queries). Queries use Redis cache; commands publish domain events.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">Domain-Driven Design (DDD)</div>
+        <div class="pattern-desc">Bounded contexts per service. Rich domain entities with invariants, value objects (AlignmentScore), and domain events.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">Repository Pattern + DI</div>
+        <div class="pattern-desc">IRepository interfaces with PostgreSQL implementations. All dependencies injected via FastAPI Depends() — no singletons in business logic.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">Event-Driven Architecture</div>
+        <div class="pattern-desc">Every state transition (goal.activated, skill.deployed) publishes a domain event to RabbitMQ. InMemory fallback for resilience.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">AI Orchestrator + Chain Pattern</div>
+        <div class="pattern-desc">Parallel asyncio.gather() chains for summary + entity extraction + Mermaid generation. Multi-agent pattern for steer/skill analysis.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">MCP — Model Context Protocol</div>
+        <div class="pattern-desc">AI tooling integration via MCP standard. Claude Code + local agents interact with services through structured tool-call protocol.</div>
+      </div>
+      <div class="pattern-item">
+        <div class="pattern-name">Cache-Aside + Pattern Invalidation</div>
+        <div class="pattern-desc">Redis cache with 60s TTL on read queries. On every write, targeted wildcard invalidation (e.g. skill:list:{orgId}:*) keeps data fresh.</div>
+      </div>
+    </div>
+
+    <!-- Docker + K8s side by side -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-green green">DevOps</span>
+      <span class="section-title-text">Docker Compose (Dev) + Kubernetes (Production)</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="k8s-grid mb5">
+      <div class="k8s-box">
+        <div class="k8s-title">Docker Compose — Full Local Stack</div>
+        <div class="k8s-line"><span>services:</span> api-gateway, steer, skill, document, auth, ai-orchestrator, notification</div>
+        <div class="k8s-line"><span>databases:</span> postgres:<em>16-alpine</em>, redis:<em>7-alpine</em>, rabbitmq:<em>3.13</em></div>
+        <div class="k8s-line"><span>volumes:</span> postgres_data, redis_data, rabbitmq_data, chroma_data</div>
+        <div class="k8s-line"><span>healthchecks:</span> pg_isready, redis-cli ping, http /health</div>
+        <div class="k8s-line"><span>base image:</span> python:<em>3.11-slim</em> / python:<em>3.12-slim</em></div>
+        <div class="k8s-line"><span>env injection:</span> configMapRef + secretRef per service</div>
+      </div>
+      <div class="k8s-box">
+        <div class="k8s-title">Kubernetes Manifests — Production</div>
+        <div class="k8s-line"><span>kind:</span> Deployment — <em>replicas: 2</em> per service</div>
+        <div class="k8s-line"><span>resources.requests:</span> memory:<em>256Mi</em> cpu:<em>200m</em></div>
+        <div class="k8s-line"><span>resources.limits:</span> memory:<em>1Gi</em> cpu:<em>1000m</em></div>
+        <div class="k8s-line"><span>livenessProbe:</span> httpGet /health · initialDelay:<em>15s</em></div>
+        <div class="k8s-line"><span>readinessProbe:</span> httpGet /health · initialDelay:<em>10s</em></div>
+        <div class="k8s-line"><span>kind:</span> Service (ClusterIP) per deployment</div>
+      </div>
+    </div>
+
+    <!-- Testing -->
+    <div class="section-header mb4">
+      <span class="section-pill bg-orange orange">Quality</span>
+      <span class="section-title-text">Testing Strategy</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="test-grid mb5">
+      <div class="test-box bg-indigo">
+        <div class="test-box-title indigo">Unit Tests</div>
+        <div class="test-box-libs">pytest 8.2.0<br/>pytest-mock 3.14<br/>Faker 25.2 · factory-boy 3.3</div>
+        <div style="font-size:7pt;color:#64748b;margin-top:2mm;">Domain entity invariants, use case logic, cache key correctness</div>
+      </div>
+      <div class="test-box bg-green">
+        <div class="test-box-title green">Async Integration</div>
+        <div class="test-box-libs">pytest-asyncio 0.23.6<br/>httpx 0.27 (TestClient)<br/>SQLite in-memory</div>
+        <div style="font-size:7pt;color:#64748b;margin-top:2mm;">Repository implementations, full API endpoint flows, event publishing</div>
+      </div>
+      <div class="test-box bg-orange">
+        <div class="test-box-title orange">Coverage &amp; Benchmark</div>
+        <div class="test-box-libs">pytest-cov 5.0.0<br/>pytest-benchmark 4.0<br/>structlog test capture</div>
+        <div style="font-size:7pt;color:#64748b;margin-top:2mm;">Code coverage reporting, LLM chain latency benchmarks, log assertions</div>
+      </div>
+    </div>
+
+    <!-- Deployment Pipeline -->
+    <div class="section-header mb4">
+      <span class="section-pill" style="background:#f0fdf4;color:#166534;">Pipeline</span>
+      <span class="section-title-text">CI/CD &amp; Deployment</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="rag-flow mb5" style="margin-bottom:5mm;">
+      <div class="rag-step bg-indigo indigo">👨‍💻 git push<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">GitHub main</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-blue blue">🔍 CI Checks<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">lint · pytest</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-orange orange">🐳 Docker Build<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">python:3.12-slim</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-green green">☁️ Render Deploy<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">FastAPI services</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-purple purple">⚡ Vercel Deploy<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">Next.js edge CDN</span></div>
+      <span class="rag-arrow">→</span>
+      <div class="rag-step bg-pink pink">📱 EAS Build<br/><span style="font-size:6.5pt;font-weight:400;color:#64748b;">iOS + Android</span></div>
+    </div>
+
+    <!-- LinkedIn Card -->
+    <div class="linkedin-card">
+      <div style="font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#64748b;margin-bottom:2mm;">LinkedIn Summary</div>
+      <div class="li-headline">Enterprise AI Platform Architect · Full-Stack · MLOps</div>
+      <div class="li-body">
+        Designed and built <strong style="color:#e2e8f0;">RamBot</strong> — a production-grade, multi-tenant Enterprise AI Platform from scratch. Implemented a 7-microservice architecture (Python 3.12 · FastAPI · PostgreSQL · Redis · RabbitMQ) following Clean Architecture + DDD + CQRS patterns. Built a full RAG pipeline (PDF → Embedding → ChromaDB vector store → LLM retrieval) with a resilient multi-provider LLM fallback chain (Groq → NVIDIA NIM → Cerebras → Mock). Deployed backend services via Docker on Render, Next.js 14 frontend on Vercel edge CDN, and React Native mobile (Expo 54) via EAS Build. Infrastructure includes Kubernetes manifests with resource quotas, health probes, and horizontal pod autoscaling for production readiness.
+      </div>
+      <div class="li-skills">
+        <span class="li-skill">Python 3.12</span>
+        <span class="li-skill">FastAPI</span>
+        <span class="li-skill">RAG Pipeline</span>
+        <span class="li-skill">Vector DB (ChromaDB)</span>
+        <span class="li-skill">LLM Integration</span>
+        <span class="li-skill">AI Orchestration</span>
+        <span class="li-skill">MCP</span>
+        <span class="li-skill">Next.js 14</span>
+        <span class="li-skill">React Native (Expo)</span>
+        <span class="li-skill">TypeScript</span>
+        <span class="li-skill">PostgreSQL</span>
+        <span class="li-skill">Redis</span>
+        <span class="li-skill">RabbitMQ</span>
+        <span class="li-skill">Docker</span>
+        <span class="li-skill">Kubernetes</span>
+        <span class="li-skill">Clean Architecture</span>
+        <span class="li-skill">DDD</span>
+        <span class="li-skill">CQRS</span>
+        <span class="li-skill">Event-Driven Architecture</span>
+        <span class="li-skill">CI/CD</span>
+        <span class="li-skill">Vercel</span>
+        <span class="li-skill">Render</span>
+        <span class="li-skill">SQLAlchemy Async</span>
+        <span class="li-skill">pytest</span>
+        <span class="li-skill">Redux Toolkit</span>
+        <span class="li-skill">React Query</span>
+      </div>
+    </div>
+
+  </div>
+  <div class="bottom-band"></div>
+</div>
+
+</body>
+</html>

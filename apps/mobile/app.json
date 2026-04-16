@@ -1,22 +1,28 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "RamBot",
+    "slug": "rambot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "rambot",
     "userInterfaceStyle": "automatic",
     "extra": {
       "router": {
         "root": "./app"
+      },
+      "eas": {
+        "projectId": ""
       }
     },
     "ios": {
       "supportsTablet": true,
-      "minimumOsVersion": "15.1"
+      "minimumOsVersion": "15.1",
+      "bundleIdentifier": "com.ramkumar.rambotapp"
     },
     "android": {
+      "package": "com.ramkumar.rambotapp",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -32,6 +38,7 @@
     },
     "plugins": [
       "expo-router",
+      "react-native-webview",
       [
         "expo-splash-screen",
         {

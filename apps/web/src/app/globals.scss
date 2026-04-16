@@ -1,0 +1,165 @@
+@use 'styles/variables' as *;
+@use 'styles/mixins' as *;
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// ─── CSS Custom Properties ────────────────────────────────────
+:root {
+  --color-bg:               #{$color-bg};
+  --color-surface-1:        #{$color-surface-1};
+  --color-surface-2:        #{$color-surface-2};
+  --color-surface-3:        #{$color-surface-3};
+  --color-border:           #{$color-border};
+  --color-border-subtle:    #{$color-border-subtle};
+
+  --color-primary:          #{$color-primary};
+  --color-primary-hover:    #{$color-primary-hover};
+  --color-primary-muted:    #{$color-primary-muted};
+  --color-secondary:        #{$color-secondary};
+  --color-secondary-hover:  #{$color-secondary-hover};
+
+  --color-text-primary:     #{$color-text-primary};
+  --color-text-secondary:   #{$color-text-secondary};
+  --color-text-muted:       #{$color-text-muted};
+  --color-text-disabled:    #{$color-text-disabled};
+
+  --color-success:          #{$color-success};
+  --color-success-bg:       #{$color-success-bg};
+  --color-warning:          #{$color-warning};
+  --color-warning-bg:       #{$color-warning-bg};
+  --color-error:            #{$color-error};
+  --color-error-bg:         #{$color-error-bg};
+  --color-info:             #{$color-info};
+  --color-info-bg:          #{$color-info-bg};
+
+  --sidebar-width:          #{$sidebar-width};
+  --topbar-height:          #{$topbar-height};
+
+  --radius-sm:  #{$radius-sm};
+  --radius-md:  #{$radius-md};
+  --radius-lg:  #{$radius-lg};
+  --radius-xl:  #{$radius-xl};
+
+  --font-sans:  #{$font-sans};
+  --font-mono:  #{$font-mono};
+}
+
+// ─── Base Reset ───────────────────────────────────────────────
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: $text-base;
+  line-height: $leading-normal;
+  min-height: 100vh;
+  @include scrollbar;
+}
+
+// ─── Typography Scale ─────────────────────────────────────────
+h1, h2, h3, h4, h5, h6 {
+  font-weight: $weight-semibold;
+  line-height: $leading-tight;
+  color: var(--color-text-primary);
+}
+
+h1 { font-size: $text-3xl; font-weight: $weight-bold; }
+h2 { font-size: $text-2xl; }
+h3 { font-size: $text-xl; }
+h4 { font-size: $text-lg; }
+
+p { line-height: $leading-relaxed; color: var(--color-text-secondary); }
+
+code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: $text-sm;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  &:hover { color: var(--color-primary-hover); }
+}
+
+// ─── Scrollbar global ─────────────────────────────────────────
+* { @include scrollbar; }
+
+// ─── Selection ────────────────────────────────────────────────
+::selection {
+  background: var(--color-primary-muted);
+  color: var(--color-text-primary);
+}
+
+// ─── Utility classes ─────────────────────────────────────────
+@layer components {
+  .text-label { @include text-label; }
+  .text-caption { @include text-caption; }
+  .card { @include card; }
+
+  .skeleton {
+    @include shimmer;
+    border-radius: $radius-md;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--color-border);
+    width: 100%;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+// ─── React Flow overrides ─────────────────────────────────────
+.react-flow {
+  background: var(--color-surface-1);
+  border-radius: var(--radius-lg);
+}
+
+.react-flow__background {
+  background: var(--color-surface-1) !important;
+}
+
+.react-flow__controls {
+  background: var(--color-surface-2) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+
+  button {
+    background: var(--color-surface-2) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    color: var(--color-text-secondary) !important;
+    &:hover { background: var(--color-surface-3) !important; }
+  }
+}
+
+.react-flow__minimap {
+  background: var(--color-surface-2) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}

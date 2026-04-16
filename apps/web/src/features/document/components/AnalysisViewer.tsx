@@ -1,123 +1,165 @@
 'use client';
 
-import { useState } from 'react';
 import { Analysis } from '../store/documentSlice';
 import { MermaidChart } from './MermaidChart';
 
-type Tab = 'summary' | 'action-points' | 'workflow';
-
-function SummaryTab({ summary, analysedAt }: { summary: string; analysedAt?: string }) {
-  if (!summary) return <p className="text-white/30 text-center py-8">No summary available.</p>;
-
-  const paragraphs = summary.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
-  const formattedDate = analysedAt
-    ? new Date(analysedAt).toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-      })
-    : null;
+/* ── Smart Summary panel ─────────────────────────────────────── */
+function SummaryPanel({ summary }: { summary: string }) {
+  const bullets = summary
+    ? summary
+        .split(/\n+/)
+        .map((l) => l.replace(/^[-•*]\s*/, '').trim())
+        .filter(Boolean)
+        .slice(0, 6)
+    : [];
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-0.5 h-5 bg-violet-500 rounded-full" />
-          <h3 className="font-semibold text-white/80 text-sm">Executive Summary</h3>
-        </div>
-        {formattedDate && (
-          <span className="text-xs text-white/25 bg-white/5 border border-white/8 px-3 py-1 rounded-full font-mono">
-            {formattedDate}
-          </span>
-        )}
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Smart Summary</p>
+        <p className="text-[11px] text-slate-400">AI-Generated Executive Overview</p>
       </div>
-      {paragraphs.map((para, i) => (
-        <p key={i} className="text-white/60 leading-relaxed text-sm">{para}</p>
-      ))}
-    </div>
-  );
-}
 
-function ActionPointsTab({ entities }: { entities: Analysis['entities'] }) {
-  const sections = [
-    { label: 'Names',   icon: '👤', items: entities.names   },
-    { label: 'Dates',   icon: '📅', items: entities.dates   },
-    { label: 'Clauses', icon: '📋', items: entities.clauses },
-    { label: 'Tasks',   icon: '✅', items: entities.tasks   },
-    { label: 'Risks',   icon: '⚠️', items: entities.risks   },
-  ];
-  const filled = sections.filter(s => s.items.length > 0);
-
-  if (filled.length === 0)
-    return <p className="text-white/30 text-center py-8">No action points extracted.</p>;
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {filled.map(({ label, icon, items }) => (
-        <div key={label} className="rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-          <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <span>{icon}</span> {label}
-          </h3>
-          <ul className="space-y-1.5">
-            {items.map((item, i) => (
-              <li key={i} className="text-sm text-white/65 flex gap-2 leading-snug">
-                <span className="text-white/20 flex-shrink-0 mt-0.5">–</span>
-                <span>{item}</span>
+      {/* Content */}
+      <div className="px-5 py-4 flex-1">
+        {bullets.length > 0 ? (
+          <ul className="space-y-3">
+            {bullets.map((b, i) => (
+              <li key={i} className="flex gap-2.5 items-start">
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                  style={{ background: '#2563eb' }}
+                />
+                <span className="text-sm text-slate-600 leading-relaxed">{b}</span>
               </li>
             ))}
           </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function WorkflowTab({ mermaidChart }: { mermaidChart?: string }) {
-  if (!mermaidChart) return (
-    <p className="text-white/30 text-center py-8">No workflow diagram available.</p>
-  );
-  return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6">
-      <div className="flex items-center gap-2 mb-5">
-        <div className="w-0.5 h-5 bg-violet-500 rounded-full" />
-        <h3 className="font-semibold text-white/80 text-sm">Document Workflow</h3>
+        ) : summary ? (
+          <p className="text-sm text-slate-600 leading-relaxed">{summary}</p>
+        ) : (
+          <p className="text-sm text-slate-400 italic text-center py-6">No summary available.</p>
+        )}
       </div>
-      <MermaidChart chart={mermaidChart} />
     </div>
   );
 }
 
-export function AnalysisViewer({ analysis }: { analysis: Analysis }) {
-  const [tab, setTab] = useState<Tab>('summary');
+/* ── Action Points panel ─────────────────────────────────────── */
+const DOT_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'summary',       label: 'Summary',       icon: '📝' },
-    { id: 'action-points', label: 'Action Points', icon: '✅' },
-    { id: 'workflow',      label: 'Workflow',       icon: '🔄' },
+function ActionPointsPanel({ entities }: { entities: Analysis['entities'] }) {
+  const sections = [
+    { label: 'Tasks',   items: entities.tasks   },
+    { label: 'Dates',   items: entities.dates   },
+    { label: 'Risks',   items: entities.risks   },
+    { label: 'Names',   items: entities.names   },
+    { label: 'Clauses', items: entities.clauses },
   ];
+  const filled = sections.filter((s) => s.items.length > 0);
+
+  /* Flatten all items with a colour per section */
+  const allItems: { text: string; color: string; group: string }[] = [];
+  filled.forEach((sec, si) => {
+    sec.items.forEach((item) =>
+      allItems.push({ text: item, color: DOT_COLORS[si % DOT_COLORS.length], group: sec.label })
+    );
+  });
 
   return (
-    <div>
-      {/* Tab bar */}
-      <div className="flex gap-1 mb-5 bg-white/[0.04] border border-white/8 p-1 rounded-xl w-fit">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`
-              px-4 py-1.5 rounded-lg text-sm font-medium transition-all
-              ${tab === t.id
-                ? 'bg-violet-600 text-white shadow-sm'
-                : 'text-white/40 hover:text-white/70'}
-            `}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Action Points</p>
+          <p className="text-[11px] text-slate-400">Key Tasks and Deadlines</p>
+        </div>
+        {allItems.length > 0 && (
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: '#eff6ff', color: '#2563eb' }}>
+            {allItems.length}
+          </span>
+        )}
       </div>
 
-      {tab === 'summary'       && <SummaryTab     summary={analysis.summary} analysedAt={analysis.analysed_at} />}
-      {tab === 'action-points' && <ActionPointsTab entities={analysis.entities} />}
-      {tab === 'workflow'      && <WorkflowTab     mermaidChart={analysis.mermaid_chart} />}
+      {/* Content */}
+      <div className="px-5 py-4 flex-1 overflow-y-auto" style={{ maxHeight: 320 }}>
+        {allItems.length > 0 ? (
+          <ul className="space-y-2.5">
+            {allItems.map((item, i) => (
+              <li key={i} className="flex gap-2.5 items-start">
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                  style={{ background: item.color }}
+                />
+                <span className="text-sm text-slate-600 leading-relaxed">{item.text}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-slate-400 italic text-center py-6">No action points extracted.</p>
+        )}
+      </div>
+
+      {/* Legend */}
+      {filled.length > 0 && (
+        <div className="px-5 py-3 border-t border-slate-50 flex flex-wrap gap-2">
+          {filled.map((sec, si) => (
+            <span key={sec.label} className="flex items-center gap-1 text-[11px] text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: DOT_COLORS[si % DOT_COLORS.length] }} />
+              {sec.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Workflow Diagram panel ───────────────────────────────────── */
+function WorkflowPanel({ mermaidChart }: { mermaidChart?: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Workflow Diagram</p>
+        <p className="text-[11px] text-slate-400">Automated Process Flowchart</p>
+      </div>
+
+      {/* Content */}
+      <div className="px-4 py-4 flex-1">
+        {mermaidChart ? (
+          <MermaidChart chart={mermaidChart} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-40 text-center">
+            <span className="text-2xl mb-2 opacity-40">🔄</span>
+            <p className="text-sm text-slate-400 italic">No workflow available.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main viewer — all 3 panels side by side ─────────────────── */
+export function AnalysisViewer({ analysis }: { analysis: Analysis }) {
+  return (
+    <div className="space-y-4">
+      {/* Section heading */}
+      <div className="flex items-center gap-3">
+        <h2 className="text-lg font-bold text-slate-800">Analysis Results</h2>
+        <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold"
+              style={{ background: '#f0fdf4', color: '#065f46' }}>
+          ✓ Complete
+        </span>
+      </div>
+
+      {/* 3-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryPanel      summary={analysis.summary} />
+        <ActionPointsPanel entities={analysis.entities} />
+        <WorkflowPanel     mermaidChart={analysis.mermaid_chart} />
+      </div>
     </div>
   );
 }

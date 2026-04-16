@@ -1,0 +1,88 @@
+@use 'styles/variables' as *;
+@use 'styles/mixins' as *;
+
+.badge {
+  @include flex(row, center, center, $space-1);
+  display: inline-flex;
+  border-radius: $radius-full;
+  font-weight: $weight-medium;
+  white-space: nowrap;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+
+// ─── Sizes ────────────────────────────────────────────────────
+.size-sm {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.size-md {
+  font-size: $text-xs;
+  padding: 3px 10px;
+}
+
+// ─── Variants ─────────────────────────────────────────────────
+.variant-default {
+  background: $color-surface-3;
+  color: $color-text-secondary;
+  border-color: $color-border;
+}
+
+.variant-primary {
+  background: $color-primary-muted;
+  color: $color-primary-hover;
+  border-color: rgba($color-primary, 0.25);
+}
+
+.variant-secondary {
+  background: $color-secondary-muted;
+  color: $color-secondary-hover;
+  border-color: rgba($color-secondary, 0.25);
+}
+
+.variant-success {
+  background: $color-success-bg;
+  color: $color-success;
+  border-color: rgba($color-success, 0.25);
+}
+
+.variant-warning {
+  background: $color-warning-bg;
+  color: $color-warning;
+  border-color: rgba($color-warning, 0.25);
+}
+
+.variant-error {
+  background: $color-error-bg;
+  color: $color-error;
+  border-color: rgba($color-error, 0.25);
+}
+
+.variant-info {
+  background: $color-info-bg;
+  color: $color-info;
+  border-color: rgba($color-info, 0.25);
+}
+
+.variant-outline {
+  background: transparent;
+  color: $color-text-muted;
+  border-color: $color-border;
+}
+
+// ─── Dot indicator ────────────────────────────────────────────
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  .variant-success & { background: $color-success; }
+  .variant-warning & { background: $color-warning; }
+  .variant-error   & { background: $color-error;   }
+  .variant-info    & { background: $color-info;     }
+  .variant-primary & { background: $color-primary;  }
+  .variant-default &,
+  .variant-outline & { background: $color-text-muted; }
+}

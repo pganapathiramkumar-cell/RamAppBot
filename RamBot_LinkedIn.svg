@@ -1,0 +1,262 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1350" viewBox="0 0 1200 1350">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0f1e"/>
+      <stop offset="100%" style="stop-color:#0f1e2e"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="cardshadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1350" fill="url(#bg)"/>
+
+  <!-- Subtle grid -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="0" x2="1200" y2="1350"/>
+    <line x1="1200" y1="0" x2="0" y2="1350"/>
+    <line x1="600" y1="0" x2="600" y2="1350"/>
+    <line x1="0" y1="675" x2="1200" y2="675"/>
+  </g>
+
+  <!-- ── TITLE BLOCK ── -->
+  <rect x="60" y="28" width="1080" height="90" rx="18" fill="#111827" filter="url(#cardshadow)"/>
+  <rect x="60" y="28" width="1080" height="90" rx="18" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+  <rect x="60" y="28" width="6" height="90" rx="3" fill="#3b82f6"/>
+  <text x="600" y="66" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="28" font-weight="900" fill="#f1f5f9" letter-spacing="3">RAMBOT</text>
+  <text x="600" y="97" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b" letter-spacing="4">ENTERPRISE AI PLATFORM  ·  ARCHITECTURE</text>
+
+  <!-- Connector line -->
+  <line x1="600" y1="118" x2="600" y2="142" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="4,4"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 1 — CLIENT
+  ══════════════════════════════════════ -->
+  <rect x="60" y="142" width="1080" height="130" rx="18" fill="#0c1a3a" filter="url(#cardshadow)"/>
+  <rect x="60" y="142" width="1080" height="130" rx="18" fill="none" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="60" y="142" width="8" height="130" rx="4" fill="#3b82f6"/>
+
+  <!-- Number badge -->
+  <circle cx="118" cy="207" r="26" fill="#1d4ed8"/>
+  <text x="118" y="213" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">1</text>
+
+  <!-- Label -->
+  <text x="165" y="191" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#3b82f6" letter-spacing="4">LAYER 1</text>
+  <text x="165" y="222" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">CLIENT APPLICATIONS</text>
+  <text x="165" y="249" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Web Browser  ·  Android Device  ·  iPhone / iOS</text>
+
+  <!-- Tech pills -->
+  <rect x="720" y="178" width="110" height="30" rx="15" fill="#1d4ed8"/>
+  <text x="775" y="198" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Next.js 14</text>
+  <rect x="845" y="178" width="130" height="30" rx="15" fill="#1d4ed8"/>
+  <text x="910" y="198" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Expo React Native</text>
+  <rect x="990" y="178" width="120" height="30" rx="15" fill="#1d4ed8"/>
+  <text x="1050" y="198" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">TailwindCSS</text>
+  <rect x="720" y="220" width="120" height="30" rx="15" fill="#0f2d6b"/>
+  <text x="780" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#93c5fd">Redux Toolkit</text>
+  <rect x="855" y="220" width="120" height="30" rx="15" fill="#0f2d6b"/>
+  <text x="915" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#93c5fd">NativeWind</text>
+  <rect x="990" y="220" width="120" height="30" rx="15" fill="#0f2d6b"/>
+  <text x="1050" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#93c5fd">TypeScript</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="272" x2="600" y2="296" stroke="#3b82f6" stroke-width="2.5"/>
+  <polygon points="592,294 608,294 600,308" fill="#3b82f6"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 2 — API GATEWAY
+  ══════════════════════════════════════ -->
+  <rect x="60" y="308" width="1080" height="130" rx="18" fill="#1a1200" filter="url(#cardshadow)"/>
+  <rect x="60" y="308" width="1080" height="130" rx="18" fill="none" stroke="#f59e0b" stroke-width="2"/>
+  <rect x="60" y="308" width="8" height="130" rx="4" fill="#f59e0b"/>
+
+  <circle cx="118" cy="373" r="26" fill="#b45309"/>
+  <text x="118" y="379" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">2</text>
+
+  <text x="165" y="357" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#f59e0b" letter-spacing="4">LAYER 2</text>
+  <text x="165" y="388" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">API GATEWAY</text>
+  <text x="165" y="415" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Single entry point  ·  Auth  ·  Rate limiting  ·  Routing  ·  Port 8000</text>
+
+  <rect x="720" y="344" width="110" height="30" rx="15" fill="#b45309"/>
+  <text x="775" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">FastAPI</text>
+  <rect x="845" y="344" width="110" height="30" rx="15" fill="#b45309"/>
+  <text x="900" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Nginx</text>
+  <rect x="970" y="344" width="140" height="30" rx="15" fill="#b45309"/>
+  <text x="1040" y="364" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">JWT Validation</text>
+  <rect x="720" y="386" width="130" height="30" rx="15" fill="#431a00"/>
+  <text x="785" y="406" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcd34d">SSL / HTTPS</text>
+  <rect x="865" y="386" width="120" height="30" rx="15" fill="#431a00"/>
+  <text x="925" y="406" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcd34d">CORS</text>
+  <rect x="1000" y="386" width="110" height="30" rx="15" fill="#431a00"/>
+  <text x="1055" y="406" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcd34d">Load Balance</text>
+
+  <line x1="600" y1="438" x2="600" y2="462" stroke="#f59e0b" stroke-width="2.5"/>
+  <polygon points="592,460 608,460 600,474" fill="#f59e0b"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 3 — MICROSERVICES
+  ══════════════════════════════════════ -->
+  <rect x="60" y="474" width="1080" height="130" rx="18" fill="#001a0e" filter="url(#cardshadow)"/>
+  <rect x="60" y="474" width="1080" height="130" rx="18" fill="none" stroke="#22c55e" stroke-width="2"/>
+  <rect x="60" y="474" width="8" height="130" rx="4" fill="#22c55e"/>
+
+  <circle cx="118" cy="539" r="26" fill="#15803d"/>
+  <text x="118" y="545" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">3</text>
+
+  <text x="165" y="523" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#22c55e" letter-spacing="4">LAYER 3</text>
+  <text x="165" y="554" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">MICROSERVICES</text>
+  <text x="165" y="581" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Clean Architecture  ·  DDD  ·  CQRS  ·  6 independent services</text>
+
+  <rect x="720" y="510" width="90" height="30" rx="15" fill="#14532d"/>
+  <text x="765" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Auth :8003</text>
+  <rect x="824" y="510" width="95" height="30" rx="15" fill="#14532d"/>
+  <text x="872" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Steer :8001</text>
+  <rect x="933" y="510" width="90" height="30" rx="15" fill="#14532d"/>
+  <text x="978" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Skill :8002</text>
+  <rect x="1037" y="510" width="93" height="30" rx="15" fill="#14532d"/>
+  <text x="1084" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Doc :8006</text>
+  <rect x="720" y="552" width="115" height="30" rx="15" fill="#052e16"/>
+  <text x="778" y="572" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80">Notify :8005</text>
+  <rect x="850" y="552" width="130" height="30" rx="15" fill="#052e16"/>
+  <text x="915" y="572" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80">AI-Orch :8004</text>
+  <rect x="996" y="552" width="134" height="30" rx="15" fill="#052e16"/>
+  <text x="1063" y="572" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80">Python FastAPI</text>
+
+  <line x1="600" y1="604" x2="600" y2="628" stroke="#22c55e" stroke-width="2.5"/>
+  <polygon points="592,626 608,626 600,640" fill="#22c55e"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 4 — AI EXECUTION
+  ══════════════════════════════════════ -->
+  <rect x="60" y="640" width="1080" height="130" rx="18" fill="#1a0800" filter="url(#cardshadow)"/>
+  <rect x="60" y="640" width="1080" height="130" rx="18" fill="none" stroke="#f97316" stroke-width="2"/>
+  <rect x="60" y="640" width="8" height="130" rx="4" fill="#f97316"/>
+
+  <circle cx="118" cy="705" r="26" fill="#c2410c"/>
+  <text x="118" y="711" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">4</text>
+
+  <text x="165" y="689" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#f97316" letter-spacing="4">LAYER 4</text>
+  <text x="165" y="720" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">AI EXECUTION</text>
+  <text x="165" y="747" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Fully local  ·  Private  ·  Zero cloud dependency  ·  GPU accelerated</text>
+
+  <rect x="720" y="676" width="130" height="30" rx="15" fill="#9a3412"/>
+  <text x="785" y="696" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Llama 3.2</text>
+  <rect x="864" y="676" width="110" height="30" rx="15" fill="#9a3412"/>
+  <text x="919" y="696" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">Ollama</text>
+  <rect x="988" y="676" width="142" height="30" rx="15" fill="#9a3412"/>
+  <text x="1059" y="696" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">LLM Chains</text>
+  <rect x="720" y="718" width="135" height="30" rx="15" fill="#431407"/>
+  <text x="788" y="738" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fdba74">RAG Pipeline</text>
+  <rect x="870" y="718" width="155" height="30" rx="15" fill="#431407"/>
+  <text x="948" y="738" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fdba74">Sentence Transformers</text>
+  <rect x="1040" y="718" width="90" height="30" rx="15" fill="#431407"/>
+  <text x="1085" y="738" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fdba74">384-dim</text>
+
+  <line x1="600" y1="770" x2="600" y2="794" stroke="#f97316" stroke-width="2.5"/>
+  <polygon points="592,792 608,792 600,806" fill="#f97316"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 5 — DATA STORES
+  ══════════════════════════════════════ -->
+  <rect x="60" y="806" width="1080" height="130" rx="18" fill="#1a001a" filter="url(#cardshadow)"/>
+  <rect x="60" y="806" width="1080" height="130" rx="18" fill="none" stroke="#e879f9" stroke-width="2"/>
+  <rect x="60" y="806" width="8" height="130" rx="4" fill="#e879f9"/>
+
+  <circle cx="118" cy="871" r="26" fill="#7e22ce"/>
+  <text x="118" y="877" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">5</text>
+
+  <text x="165" y="855" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#e879f9" letter-spacing="4">LAYER 5</text>
+  <text x="165" y="886" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">DATA STORES</text>
+  <text x="165" y="913" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Per-service databases  ·  Cache  ·  Event bus  ·  Vector store</text>
+
+  <rect x="720" y="842" width="120" height="30" rx="15" fill="#581c87"/>
+  <text x="780" y="862" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#e9d5ff">PostgreSQL</text>
+  <rect x="854" y="842" width="90" height="30" rx="15" fill="#581c87"/>
+  <text x="899" y="862" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#e9d5ff">Redis</text>
+  <rect x="958" y="842" width="120" height="30" rx="15" fill="#581c87"/>
+  <text x="1018" y="862" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#e9d5ff">RabbitMQ</text>
+  <rect x="1092" y="842" width="38" height="30" rx="15" fill="#581c87"/>
+  <text x="1111" y="862" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">+ 1</text>
+  <rect x="720" y="884" width="130" height="30" rx="15" fill="#3b0764"/>
+  <text x="785" y="904" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#d8b4fe">ChromaDB</text>
+  <rect x="866" y="884" width="130" height="30" rx="15" fill="#3b0764"/>
+  <text x="931" y="904" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#d8b4fe">Alembic ORM</text>
+  <rect x="1012" y="884" width="118" height="30" rx="15" fill="#3b0764"/>
+  <text x="1071" y="904" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#d8b4fe">Event Sourcing</text>
+
+  <line x1="600" y1="936" x2="600" y2="960" stroke="#e879f9" stroke-width="2.5"/>
+  <polygon points="592,958 608,958 600,972" fill="#e879f9"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 6 — INFRASTRUCTURE
+  ══════════════════════════════════════ -->
+  <rect x="60" y="972" width="1080" height="130" rx="18" fill="#0a1520" filter="url(#cardshadow)"/>
+  <rect x="60" y="972" width="1080" height="130" rx="18" fill="none" stroke="#38bdf8" stroke-width="2"/>
+  <rect x="60" y="972" width="8" height="130" rx="4" fill="#38bdf8"/>
+
+  <circle cx="118" cy="1037" r="26" fill="#0369a1"/>
+  <text x="118" y="1043" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">6</text>
+
+  <text x="165" y="1021" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#38bdf8" letter-spacing="4">LAYER 6</text>
+  <text x="165" y="1052" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">INFRASTRUCTURE &amp; CI/CD</text>
+  <text x="165" y="1079" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Local dev → staging → production  ·  Automated pipeline</text>
+
+  <rect x="720" y="1008" width="100" height="30" rx="15" fill="#0c4a6e"/>
+  <text x="770" y="1028" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#7dd3fc">Docker</text>
+  <rect x="834" y="1008" width="120" height="30" rx="15" fill="#0c4a6e"/>
+  <text x="894" y="1028" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#7dd3fc">Kubernetes</text>
+  <rect x="968" y="1008" width="162" height="30" rx="15" fill="#0c4a6e"/>
+  <text x="1049" y="1028" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#7dd3fc">GitHub Actions</text>
+  <rect x="720" y="1050" width="100" height="30" rx="15" fill="#082f49"/>
+  <text x="770" y="1070" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bae6fd">Vercel</text>
+  <rect x="834" y="1050" width="100" height="30" rx="15" fill="#082f49"/>
+  <text x="884" y="1070" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bae6fd">Render</text>
+  <rect x="948" y="1050" width="182" height="30" rx="15" fill="#082f49"/>
+  <text x="1039" y="1070" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bae6fd">EAS (App Stores)</text>
+
+  <line x1="600" y1="1102" x2="600" y2="1126" stroke="#38bdf8" stroke-width="2.5"/>
+  <polygon points="592,1124 608,1124 600,1138" fill="#38bdf8"/>
+
+  <!-- ══════════════════════════════════════
+       LAYER 7 — TESTING & QUALITY
+  ══════════════════════════════════════ -->
+  <rect x="60" y="1138" width="1080" height="130" rx="18" fill="#001a12" filter="url(#cardshadow)"/>
+  <rect x="60" y="1138" width="1080" height="130" rx="18" fill="none" stroke="#4ade80" stroke-width="2"/>
+  <rect x="60" y="1138" width="8" height="130" rx="4" fill="#4ade80"/>
+
+  <circle cx="118" cy="1203" r="26" fill="#15803d"/>
+  <text x="118" y="1209" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="white">7</text>
+
+  <text x="165" y="1187" font-family="'Arial Black', Arial, sans-serif" font-size="11" font-weight="bold" fill="#4ade80" letter-spacing="4">LAYER 7</text>
+  <text x="165" y="1218" font-family="'Arial Black', Arial, sans-serif" font-size="26" font-weight="900" fill="#e2e8f0">TESTING &amp; QUALITY</text>
+  <text x="165" y="1245" font-family="Arial, sans-serif" font-size="14" fill="#64748b">45+ unit  ·  14 integration  ·  5 security  ·  85%+ coverage  ·  CI enforced</text>
+
+  <rect x="720" y="1174" width="115" height="30" rx="15" fill="#14532d"/>
+  <text x="778" y="1194" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#86efac">pytest</text>
+  <rect x="850" y="1174" width="120" height="30" rx="15" fill="#14532d"/>
+  <text x="910" y="1194" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#86efac">85%+ Cover</text>
+  <rect x="984" y="1174" width="146" height="30" rx="15" fill="#14532d"/>
+  <text x="1057" y="1194" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#86efac">Security Tests</text>
+  <rect x="720" y="1216" width="130" height="30" rx="15" fill="#052e16"/>
+  <text x="785" y="1236" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80">httpx AsyncClient</text>
+  <rect x="866" y="1216" width="130" height="30" rx="15" fill="#052e16"/>
+  <text x="931" y="1236" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80">Prompt Injection</text>
+  <rect x="1012" y="1216" width="118" height="30" rx="15" fill="#052e16"/>
+  <text x="1071" y="1236" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80">Nightly LLM CI</text>
+
+  <!-- ── FOOTER ── -->
+  <rect x="0" y="1292" width="1200" height="58" fill="#060d18"/>
+  <line x1="0" y1="1292" x2="1200" y2="1292" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Left: stack line -->
+  <text x="76" y="1322" font-family="Arial, sans-serif" font-size="11" fill="#334155">Python 3.11  ·  FastAPI  ·  Next.js 14  ·  Expo RN  ·  Llama 3.2  ·  Ollama  ·  PostgreSQL  ·  Redis  ·  ChromaDB  ·  Docker  ·  K8s</text>
+
+  <!-- Center: name -->
+  <text x="600" y="1314" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-size="18" font-weight="900" fill="#e2e8f0">Ganpathi Ramkumar Palanivel</text>
+  <text x="600" y="1337" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#3b82f6" letter-spacing="2">www.ramkumar.cloud</text>
+</svg>

@@ -1,0 +1,148 @@
+@use 'variables' as *;
+
+// ─── Flex ─────────────────────────────────────────────────────
+@mixin flex($dir: row, $align: center, $justify: flex-start, $gap: 0) {
+  display: flex;
+  flex-direction: $dir;
+  align-items: $align;
+  justify-content: $justify;
+  @if $gap != 0 { gap: $gap; }
+}
+
+@mixin flex-center { @include flex(row, center, center); }
+@mixin flex-between { @include flex(row, center, space-between); }
+@mixin flex-col($gap: 0) { @include flex(column, stretch, flex-start, $gap); }
+
+// ─── Grid ─────────────────────────────────────────────────────
+@mixin grid($cols: 1, $gap: $space-4) {
+  display: grid;
+  grid-template-columns: repeat($cols, minmax(0, 1fr));
+  gap: $gap;
+}
+
+@mixin auto-grid($min: 280px, $gap: $space-4) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax($min, 1fr));
+  gap: $gap;
+}
+
+// ─── Typography ───────────────────────────────────────────────
+@mixin text-label {
+  font-size: $text-xs;
+  font-weight: $weight-semibold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+@mixin text-caption {
+  font-size: $text-xs;
+  font-weight: $weight-regular;
+  color: $color-text-muted;
+  line-height: $leading-normal;
+}
+
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ─── Card ─────────────────────────────────────────────────────
+@mixin card {
+  background: $color-surface-1;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+}
+
+@mixin card-interactive {
+  @include card;
+  cursor: pointer;
+  transition: border-color $duration-base $ease-out,
+              background $duration-base $ease-out,
+              box-shadow $duration-base $ease-out;
+
+  &:hover {
+    border-color: rgba($color-primary, 0.4);
+    background: $color-surface-2;
+    box-shadow: $shadow-sm;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: $shadow-glow-primary;
+  }
+}
+
+// ─── Focus ring ───────────────────────────────────────────────
+@mixin focus-ring($color: $color-primary) {
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px $color-bg, 0 0 0 4px rgba($color, 0.5);
+  }
+}
+
+// ─── Scrollbar ────────────────────────────────────────────────
+@mixin scrollbar($size: 4px) {
+  scrollbar-width: thin;
+  scrollbar-color: $color-surface-3 transparent;
+
+  &::-webkit-scrollbar { width: $size; height: $size; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: $color-surface-3;
+    border-radius: $radius-full;
+    &:hover { background: $color-border; }
+  }
+}
+
+// ─── Responsive ───────────────────────────────────────────────
+@mixin sm  { @media (min-width: $bp-sm)  { @content; } }
+@mixin md  { @media (min-width: $bp-md)  { @content; } }
+@mixin lg  { @media (min-width: $bp-lg)  { @content; } }
+@mixin xl  { @media (min-width: $bp-xl)  { @content; } }
+@mixin xxl { @media (min-width: $bp-2xl) { @content; } }
+
+// ─── Animations ───────────────────────────────────────────────
+@mixin fade-in($duration: $duration-base) {
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  animation: fadeIn $duration $ease-out forwards;
+}
+
+@mixin shimmer {
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  background: linear-gradient(
+    90deg,
+    $color-surface-2 25%,
+    $color-surface-3 50%,
+    $color-surface-2 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+// ─── Status badge ─────────────────────────────────────────────
+@mixin status-dot($color) {
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $color;
+    margin-right: $space-2;
+  }
+}
+
+// ─── Glass effect ─────────────────────────────────────────────
+@mixin glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

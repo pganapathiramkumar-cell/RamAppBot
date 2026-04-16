@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  ScrollView, Alert, Platform, Animated,
+  ScrollView, Alert, Platform, Animated, StatusBar,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { WebView } from 'react-native-webview';
-import { ThemedView } from '@/components/themed-view';
+import {
+  Brand, Category, Semantic, Shadows,
+  FontSize, FontWeight, Radius, Space,
+} from '@/constants/theme';
 
-const API = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const API      = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
 const MAX_SIZE = 5 * 1024 * 1024;
 
-// ── Types ──────────────────────────────────────────────────────
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'failed';
 type Tab   = 'summary' | 'actions' | 'workflow';
 
@@ -21,124 +23,193 @@ interface Entities {
 interface Analysis {
   document_id: string; status: string;
   summary: string; entities: Entities;
-  workflow: unknown[];
-  mermaid_chart?: string;
+  workflow: unknown[]; mermaid_chart?: string;
 }
 
-// ── Sub-components ─────────────────────────────────────────────
+/* ── Category config ──────────────────────────────────────────── */
+const CATS = [
+  { key: 'names'   as keyof Entities, label: 'People & Names', icon: '👤', ...Category.names   },
+  { key: 'dates'   as keyof Entities, label: 'Key Dates',       icon: '📅', ...Category.dates   },
+  { key: 'clauses' as keyof Entities, label: 'Clauses',         icon: '📋', ...Category.clauses },
+  { key: 'tasks'   as keyof Entities, label: 'Action Tasks',    icon: '✅', ...Category.tasks   },
+  { key: 'risks'   as keyof Entities, label: 'Risks',           icon: '⚠️', ...Category.risks   },
+];
 
+/* ── Summary tab ──────────────────────────────────────────────── */
 function SummaryTab({ summary }: { summary: string }) {
+  const paras = summary?.split(/\n\n+/).map((p) => p.trim()).filter(Boolean) ?? [];
   return (
-    <View style={card.wrap}>
-      <Text style={card.label}>📝  Executive Summary</Text>
-      <Text style={card.body}>{summary || 'No summary available.'}</Text>
-    </View>
-  );
-}
-
-function ActionsTab({ entities }: { entities: Entities }) {
-  const sections = [
-    { label: 'Names',   icon: '👤', items: entities.names   },
-    { label: 'Dates',   icon: '📅', items: entities.dates   },
-    { label: 'Clauses', icon: '📋', items: entities.clauses },
-    { label: 'Tasks',   icon: '✅', items: entities.tasks   },
-    { label: 'Risks',   icon: '⚠️', items: entities.risks   },
-  ];
-  const filled = sections.filter(s => s.items.length > 0);
-  if (filled.length === 0) return (
-    <View style={card.wrap}><Text style={card.empty}>No action points extracted.</Text></View>
-  );
-  return (
-    <View style={{ gap: 10 }}>
-      {filled.map(({ label, icon, items }) => (
-        <View key={label} style={card.wrap}>
-          <Text style={card.label}>{icon}  {label}</Text>
-          {items.map((item, i) => (
-            <Text key={i} style={card.bullet}>• {item}</Text>
-          ))}
+    <View style={tabCard.wrap}>
+      <View style={tabCard.header}>
+        <View style={[tabCard.iconBox, { backgroundColor: `${Brand.steer}18` }]}>
+          <Text style={tabCard.icon}>📝</Text>
         </View>
-      ))}
+        <View>
+          <Text style={tabCard.title}>Executive Summary</Text>
+          <Text style={tabCard.meta}>AI-generated overview</Text>
+        </View>
+      </View>
+      {paras.length > 0
+        ? paras.map((p, i) => <Text key={i} style={tabCard.body}>{p}</Text>)
+        : <Text style={tabCard.empty}>No summary available.</Text>
+      }
     </View>
   );
 }
 
-function WorkflowTab({ chart }: { chart?: string }) {
-  if (!chart) return (
-    <View style={card.wrap}>
-      <Text style={card.empty}>No workflow diagram available.</Text>
+/* ── Actions tab ──────────────────────────────────────────────── */
+function ActionsTab({ entities }: { entities: Entities }) {
+  const filled = CATS.filter((c) => (entities[c.key] as string[])?.length > 0);
+  if (!filled.length) {
+    return (
+      <View style={tabCard.wrap}>
+        <Text style={tabCard.empty}>No action points extracted.</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: Space.sm }}>
+      {filled.map((cat) => {
+        const items = entities[cat.key] as string[];
+        return (
+          <View key={cat.key} style={[actionCard.wrap, { backgroundColor: cat.bg, borderColor: cat.border }]}>
+            <View style={actionCard.header}>
+              <Text style={actionCard.icon}>{cat.icon}</Text>
+              <Text style={[actionCard.label, { color: cat.text }]}>{cat.label}</Text>
+              <View style={[actionCard.countBadge, { backgroundColor: cat.accent }]}>
+                <Text style={actionCard.countText}>{items.length}</Text>
+              </View>
+            </View>
+            {items.map((item, i) => (
+              <View key={i} style={actionCard.row}>
+                <View style={[actionCard.dot, { backgroundColor: cat.accent }]} />
+                <Text style={[actionCard.item, { color: cat.text }]}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })}
     </View>
   );
+}
 
+/* ── Workflow tab ─────────────────────────────────────────────── */
+function WorkflowTab({ chart }: { chart?: string }) {
+  if (!chart) {
+    return (
+      <View style={tabCard.wrap}>
+        <Text style={tabCard.empty}>No workflow diagram available.</Text>
+      </View>
+    );
+  }
   const escaped = chart.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-  const html = `<!DOCTYPE html>
-<html>
+  const html = `<!DOCTYPE html><html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; padding: 12px; font-family: system-ui, sans-serif; }
-    .mermaid { width: 100%; }
-    svg { width: 100% !important; height: auto !important; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#fff;padding:16px;font-family:system-ui,sans-serif}
+    .mermaid{width:100%}
+    svg{width:100%!important;height:auto!important}
+    .node rect,.node circle,.node ellipse,.node polygon{fill:#e0e7ff;stroke:#6366f1;stroke-width:1.5px}
+    .edgePath .path{stroke:#94a3b8}
   </style>
 </head>
 <body>
   <div class="mermaid">\${String.raw\`${escaped}\`}</div>
   <script>
     mermaid.initialize({
-      startOnLoad: true,
-      theme: 'base',
-      themeVariables: { fontSize: '13px', fontFamily: 'system-ui, sans-serif' },
-      flowchart: { curve: 'basis', padding: 16 }
+      startOnLoad:true,
+      theme:'base',
+      themeVariables:{
+        fontSize:'13px',fontFamily:'system-ui,sans-serif',
+        primaryColor:'#e0e7ff',primaryBorderColor:'#6366f1',
+        primaryTextColor:'#1e1b4b',lineColor:'#94a3b8',
+        edgeLabelBackground:'#f8fafc',
+      },
+      flowchart:{curve:'basis',padding:20}
     });
   </script>
-</body>
-</html>`;
+</body></html>`;
 
   return (
-    <View style={wf.container}>
+    <View style={wfStyle.wrap}>
+      <View style={tabCard.header}>
+        <View style={[tabCard.iconBox, { backgroundColor: `${Brand.skill}18` }]}>
+          <Text style={tabCard.icon}>🔄</Text>
+        </View>
+        <View>
+          <Text style={tabCard.title}>Document Workflow</Text>
+          <Text style={tabCard.meta}>Visual process diagram</Text>
+        </View>
+      </View>
       <WebView
         source={{ html }}
-        style={wf.webview}
+        style={wfStyle.webview}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
         originWhitelist={['*']}
-        onShouldStartLoadWithRequest={() => true}
       />
     </View>
   );
 }
 
-// ── Main Screen ────────────────────────────────────────────────
-
+/* ── Main screen ──────────────────────────────────────────────── */
 export default function DocumentsScreen() {
-  const [phase, setPhase]       = useState<Phase>('idle');
-  const [docId, setDocId]       = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [error, setError]       = useState<string | null>(null);
-  const [filename, setFilename] = useState('');
+  const [phase,     setPhase]     = useState<Phase>('idle');
+  const [docId,     setDocId]     = useState<string | null>(null);
+  const [analysis,  setAnalysis]  = useState<Analysis | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
+  const [filename,  setFilename]  = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('summary');
-  const dotAnim = useRef(new Animated.Value(0)).current;
+  const [progress,  setProgress]  = useState(0);
+  const pulseAnim   = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // Pulse animation while processing
+  /* Pulse during processing */
   useEffect(() => {
-    if (phase !== 'processing') return;
+    if (phase !== 'processing') { pulseAnim.setValue(1); return; }
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(dotAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(dotAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1,   duration: 700, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
-  }, [phase, dotAnim]);
+  }, [phase, pulseAnim]);
 
-  // Poll backend while processing
+  /* Animate progress bar */
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 600,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
+
+  /* Fake progress steps */
+  useEffect(() => {
+    if (phase !== 'processing') return;
+    const steps = [15, 30, 45, 60, 72, 83, 91];
+    let i = 0;
+    const t = setInterval(() => {
+      if (i < steps.length) setProgress(steps[i++]); else clearInterval(t);
+    }, 2500);
+    return () => clearInterval(t);
+  }, [phase]);
+
   const poll = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API}/analyses/${id}`);
       if (!res.ok) return;
       const data: Analysis = await res.json();
-      if (data.status === 'done') { setAnalysis(data); setPhase('done'); }
-      else if (data.status === 'failed') { setError('Analysis failed. Please try again.'); setPhase('failed'); }
+      if (data.status === 'done') {
+        setProgress(100);
+        setTimeout(() => { setAnalysis(data); setPhase('done'); }, 500);
+      } else if (data.status === 'failed') {
+        setError('Analysis failed. Please try again.');
+        setPhase('failed');
+      }
     } catch { /* keep polling */ }
   }, []);
 
@@ -149,21 +220,17 @@ export default function DocumentsScreen() {
   }, [phase, docId, poll]);
 
   async function pickAndUpload() {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf', copyToCacheDirectory: true,
+    });
     if (result.canceled) return;
     const asset = result.assets[0];
-
     if (asset.size && asset.size > MAX_SIZE) {
       Alert.alert('File too large', 'Please choose a PDF under 5 MB.'); return;
     }
-
-    setFilename(asset.name);
-    setError(null);
-    setPhase('uploading');
-
+    setFilename(asset.name); setError(null); setProgress(0); setPhase('uploading');
     const form = new FormData();
     form.append('file', { uri: asset.uri, name: asset.name, type: 'application/pdf' } as unknown as Blob);
-
     try {
       const res = await fetch(`${API}/documents/upload`, { method: 'POST', body: form });
       if (!res.ok) {
@@ -171,8 +238,7 @@ export default function DocumentsScreen() {
         throw new Error(err?.detail?.message ?? `Upload failed (${res.status})`);
       }
       const doc = await res.json();
-      setDocId(doc.id);
-      setPhase('processing');
+      setDocId(doc.id); setPhase('processing');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Could not reach the document service.');
       setPhase('failed');
@@ -181,56 +247,96 @@ export default function DocumentsScreen() {
 
   function reset() {
     setPhase('idle'); setDocId(null); setAnalysis(null);
-    setError(null); setFilename(''); setActiveTab('summary');
+    setError(null); setFilename(''); setActiveTab('summary'); setProgress(0);
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'summary', label: '📝 Summary'      },
-    { id: 'actions', label: '✅ Action Points' },
-    { id: 'workflow', label: '🔄 Workflow'     },
+  const TABS: { id: Tab; label: string; icon: string }[] = [
+    { id: 'summary', label: 'Summary',      icon: '📝' },
+    { id: 'actions', label: 'Action Points',icon: '✅' },
+    { id: 'workflow',label: 'Workflow',      icon: '🔄' },
   ];
 
   return (
-    <ThemedView style={s.container}>
+    <View style={s.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}
         <View style={s.header}>
-          <Text style={s.headerEmoji}>🤖</Text>
-          <Text style={s.headerTitle}>RamBot</Text>
-          <Text style={s.headerSub}>Enterprise AI Platform</Text>
+          <View style={s.headerLogo}>
+            <Text style={s.headerLogoEmoji}>📄</Text>
+          </View>
+          <Text style={s.headerTitle}>DocuMind</Text>
+          <Text style={s.headerSub}>AI Document Intelligence</Text>
         </View>
 
         {/* ── IDLE ── */}
         {phase === 'idle' && (
-          <TouchableOpacity style={s.uploadBox} onPress={pickAndUpload} activeOpacity={0.8}>
-            <Text style={s.uploadIcon}>📄</Text>
-            <Text style={s.uploadTitle}>Tap to upload a PDF</Text>
-            <Text style={s.uploadSub}>Maximum file size: 5 MB</Text>
-          </TouchableOpacity>
+          <View>
+            {/* Feature pills */}
+            <View style={s.featurePills}>
+              {[
+                { icon: '📝', label: 'Smart Summary',  color: Brand.steer  },
+                { icon: '✅', label: 'Action Points',  color: Brand.skill  },
+                { icon: '🔄', label: 'Workflow',        color: Brand.docuMind },
+              ].map((f) => (
+                <View key={f.label} style={[s.featurePill, { borderColor: `${f.color}30` }]}>
+                  <Text style={s.featurePillIcon}>{f.icon}</Text>
+                  <Text style={[s.featurePillLabel, { color: f.color }]}>{f.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Upload zone */}
+            <TouchableOpacity style={s.uploadBox} onPress={pickAndUpload} activeOpacity={0.85}>
+              <View style={s.uploadIconWrap}>
+                <Text style={s.uploadIconText}>⬆️</Text>
+              </View>
+              <Text style={s.uploadTitle}>Tap to upload a PDF</Text>
+              <Text style={s.uploadSub}>Maximum 5 MB · PDF only</Text>
+              <View style={s.uploadBtn}>
+                <Text style={s.uploadBtnText}>Choose File →</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* ── UPLOADING ── */}
         {phase === 'uploading' && (
-          <View style={s.spinnerBox}>
-            <ActivityIndicator size="large" color="#4f46e5" />
-            <Text style={s.spinnerTitle}>Uploading…</Text>
-            <Text style={s.spinnerSub} numberOfLines={1}>{filename}</Text>
+          <View style={s.stateCard}>
+            <ActivityIndicator size="large" color={Brand.steer} />
+            <Text style={s.stateTitle}>Uploading your PDF…</Text>
+            <Text style={s.stateSub} numberOfLines={1}>{filename}</Text>
           </View>
         )}
 
         {/* ── PROCESSING ── */}
         {phase === 'processing' && (
-          <View style={s.spinnerBox}>
-            <ActivityIndicator size="large" color="#7c3aed" />
-            <Text style={s.spinnerTitle}>Analysing your document…</Text>
-            <Text style={s.spinnerSub}>
-              Generating summary, action points and workflow.{'\n'}
-              Please wait — this takes about 15–30 seconds.
-            </Text>
+          <View style={s.stateCard}>
+            <View style={s.spinnerRing}>
+              <ActivityIndicator size="large" color={Brand.steer} />
+              <Text style={s.spinnerEmoji}>🤖</Text>
+            </View>
+            <Text style={s.stateTitle}>Analysing document…</Text>
+            <Text style={s.stateSub}>This takes about 15–30 seconds.</Text>
+
+            {/* Progress bar */}
+            <View style={s.progressWrap}>
+              <View style={s.progressTrack}>
+                <Animated.View
+                  style={[
+                    s.progressFill,
+                    { width: progressAnim.interpolate({ inputRange: [0,100], outputRange: ['0%','100%'] }) },
+                  ]}
+                />
+              </View>
+              <Text style={s.progressPct}>{progress}%</Text>
+            </View>
+
+            {/* Output pills */}
             <View style={s.pillRow}>
               {['Summary', 'Action Points', 'Workflow'].map((l) => (
-                <Animated.View key={l} style={[s.pill, { opacity: dotAnim }]}>
+                <Animated.View key={l} style={[s.pill, { opacity: pulseAnim }]}>
                   <Text style={s.pillText}>{l}</Text>
                 </Animated.View>
               ))}
@@ -242,11 +348,15 @@ export default function DocumentsScreen() {
         {phase === 'done' && analysis && (
           <View>
             {/* File chip */}
-            <View style={s.chipRow}>
-              <View style={s.chip}>
-                <Text style={s.chipIcon}>📄</Text>
-                <Text style={s.chipName} numberOfLines={1}>{filename}</Text>
-                <View style={s.chipBadge}><Text style={s.chipBadgeText}>Done</Text></View>
+            <View style={s.fileChip}>
+              <View style={s.fileChipIcon}><Text>📄</Text></View>
+              <View style={s.fileChipBody}>
+                <Text style={s.fileChipName} numberOfLines={1}>{filename}</Text>
+                <Text style={s.fileChipMeta}>Analysis complete</Text>
+              </View>
+              <View style={s.fileChipBadge}>
+                <View style={s.fileChipDot} />
+                <Text style={s.fileChipBadgeText}>Done</Text>
               </View>
               <TouchableOpacity onPress={reset} style={s.newBtn}>
                 <Text style={s.newBtnText}>+ New</Text>
@@ -255,12 +365,14 @@ export default function DocumentsScreen() {
 
             {/* Tab bar */}
             <View style={s.tabBar}>
-              {tabs.map((t) => (
+              {TABS.map((t) => (
                 <TouchableOpacity
                   key={t.id}
                   onPress={() => setActiveTab(t.id)}
                   style={[s.tabBtn, activeTab === t.id && s.tabBtnActive]}
+                  activeOpacity={0.8}
                 >
+                  <Text style={s.tabIcon}>{t.icon}</Text>
                   <Text style={[s.tabLabel, activeTab === t.id && s.tabLabelActive]}>
                     {t.label}
                   </Text>
@@ -268,79 +380,285 @@ export default function DocumentsScreen() {
               ))}
             </View>
 
-            {/* Tab content */}
-            {activeTab === 'summary' && <SummaryTab summary={analysis.summary} />}
-            {activeTab === 'actions' && <ActionsTab entities={analysis.entities} />}
+            {/* Content */}
+            {activeTab === 'summary'  && <SummaryTab summary={analysis.summary} />}
+            {activeTab === 'actions'  && <ActionsTab entities={analysis.entities} />}
             {activeTab === 'workflow' && <WorkflowTab chart={analysis.mermaid_chart} />}
           </View>
         )}
 
         {/* ── FAILED ── */}
         {phase === 'failed' && (
-          <View style={s.errorBox}>
-            <Text style={s.errorIcon}>❌</Text>
+          <View style={s.errorCard}>
+            <View style={s.errorIconWrap}><Text style={s.errorIconText}>⚠️</Text></View>
             <Text style={s.errorTitle}>Something went wrong</Text>
             <Text style={s.errorMsg}>{error}</Text>
-            <TouchableOpacity style={s.retryBtn} onPress={reset}>
-              <Text style={s.retryText}>Try again</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={reset} activeOpacity={0.85}>
+              <Text style={s.retryText}>Try Again</Text>
             </TouchableOpacity>
           </View>
         )}
 
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────
-
+/* ── Styles ─────────────────────────────────────────────────── */
 const s = StyleSheet.create({
-  container:      { flex: 1 },
-  scroll:         { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 32, paddingBottom: 48 },
-  header:         { alignItems: 'center', marginBottom: 28 },
-  headerEmoji:    { fontSize: 48, marginBottom: 6 },
-  headerTitle:    { fontSize: 30, fontWeight: '800', color: '#111827' },
-  headerSub:      { fontSize: 14, color: '#9ca3af', marginTop: 4 },
-  uploadBox:      { borderWidth: 2, borderColor: '#e5e7eb', borderStyle: 'dashed', borderRadius: 24, padding: 48, alignItems: 'center', backgroundColor: '#fafafa' },
-  uploadIcon:     { fontSize: 52, marginBottom: 12 },
-  uploadTitle:    { fontSize: 17, fontWeight: '700', color: '#374151' },
-  uploadSub:      { fontSize: 13, color: '#9ca3af', marginTop: 6 },
-  spinnerBox:     { backgroundColor: 'white', borderRadius: 24, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
-  spinnerTitle:   { fontSize: 17, fontWeight: '700', color: '#374151', marginTop: 16 },
-  spinnerSub:     { fontSize: 13, color: '#9ca3af', marginTop: 8, textAlign: 'center', lineHeight: 20 },
-  pillRow:        { flexDirection: 'row', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  pill:           { paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#eef2ff', borderRadius: 20 },
-  pillText:       { fontSize: 12, color: '#4f46e5', fontWeight: '600' },
-  chipRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  chip:           { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'white', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flex: 1, marginRight: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 1 },
-  chipIcon:       { fontSize: 16 },
-  chipName:       { flex: 1, fontSize: 13, fontWeight: '600', color: '#374151' },
-  chipBadge:      { backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  chipBadgeText:  { fontSize: 11, color: '#16a34a', fontWeight: '700' },
-  newBtn:         { backgroundColor: '#eef2ff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14 },
-  newBtnText:     { color: '#4f46e5', fontSize: 13, fontWeight: '700' },
-  tabBar:         { flexDirection: 'row', backgroundColor: '#f3f4f6', borderRadius: 16, padding: 4, marginBottom: 16 },
-  tabBtn:         { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 12 },
-  tabBtnActive:   { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  tabLabel:       { fontSize: 12, fontWeight: '600', color: '#9ca3af' },
-  tabLabelActive: { color: '#4f46e5' },
-  errorBox:       { backgroundColor: 'white', borderRadius: 24, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: '#fee2e2' },
-  errorIcon:      { fontSize: 44, marginBottom: 10 },
-  errorTitle:     { fontSize: 17, fontWeight: '700', color: '#374151' },
-  errorMsg:       { fontSize: 13, color: '#ef4444', marginTop: 6, textAlign: 'center' },
-  retryBtn:       { marginTop: 20, backgroundColor: '#4f46e5', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 16 },
-  retryText:      { color: 'white', fontWeight: '700', fontSize: 15 },
+  root:  { flex: 1, backgroundColor: '#f8fafc' },
+  scroll: {
+    paddingHorizontal: Space.xl,
+    paddingTop: Platform.OS === 'ios' ? 60 : 28,
+    paddingBottom: Space['5xl'],
+  },
+
+  /* Header */
+  header: { alignItems: 'center', marginBottom: Space['3xl'] },
+  headerLogo: {
+    width: 64, height: 64,
+    borderRadius: Radius.xl,
+    backgroundColor: Brand.docuMind,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Space.sm,
+    ...Shadows.lg,
+  },
+  headerLogoEmoji: { fontSize: 30 },
+  headerTitle: {
+    fontSize: FontSize['2xl'], fontWeight: FontWeight.extrabold,
+    color: '#0f172a', letterSpacing: -0.5,
+  },
+  headerSub: {
+    fontSize: FontSize.sm, color: '#94a3b8',
+    fontWeight: FontWeight.medium, marginTop: 3,
+  },
+
+  /* Feature pills */
+  featurePills: {
+    flexDirection: 'row', gap: Space.sm,
+    marginBottom: Space.xl, flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  featurePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#ffffff',
+    borderRadius: Radius.full, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 6,
+    ...Shadows.sm,
+  },
+  featurePillIcon: { fontSize: 13 },
+  featurePillLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+
+  /* Upload zone */
+  uploadBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radius['2xl'],
+    borderWidth: 2, borderStyle: 'dashed', borderColor: '#e2e8f0',
+    padding: Space['4xl'], alignItems: 'center',
+    ...Shadows.md,
+  },
+  uploadIconWrap: {
+    width: 72, height: 72, borderRadius: Radius.xl,
+    backgroundColor: `${Brand.docuMind}15`,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Space.lg,
+  },
+  uploadIconText: { fontSize: 36 },
+  uploadTitle: {
+    fontSize: FontSize.lg, fontWeight: FontWeight.bold,
+    color: '#0f172a', marginBottom: 4,
+  },
+  uploadSub: {
+    fontSize: FontSize.sm, color: '#94a3b8', marginBottom: Space.xl,
+  },
+  uploadBtn: {
+    backgroundColor: Brand.docuMind,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Space['3xl'], paddingVertical: 12,
+    ...Shadows.md,
+  },
+  uploadBtnText: {
+    color: '#ffffff', fontSize: FontSize.base,
+    fontWeight: FontWeight.bold,
+  },
+
+  /* State cards (uploading/processing) */
+  stateCard: {
+    backgroundColor: '#ffffff', borderRadius: Radius['2xl'],
+    padding: Space['4xl'], alignItems: 'center', ...Shadows.md,
+  },
+  stateTitle: {
+    fontSize: FontSize.lg, fontWeight: FontWeight.bold,
+    color: '#0f172a', marginTop: Space.lg, textAlign: 'center',
+  },
+  stateSub: {
+    fontSize: FontSize.sm, color: '#94a3b8',
+    marginTop: 6, textAlign: 'center', lineHeight: 20,
+  },
+
+  /* Spinner ring */
+  spinnerRing: {
+    width: 72, height: 72,
+    borderRadius: 36, borderWidth: 2, borderColor: `${Brand.steer}30`,
+    alignItems: 'center', justifyContent: 'center', position: 'relative',
+  },
+  spinnerEmoji: {
+    position: 'absolute', fontSize: 24,
+  },
+
+  /* Progress */
+  progressWrap: {
+    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginTop: Space.xl,
+  },
+  progressTrack: {
+    flex: 1, height: 8, backgroundColor: '#f1f5f9', borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%', borderRadius: Radius.full,
+    backgroundColor: Brand.steer,
+  },
+  progressPct: {
+    fontSize: FontSize.xs, fontWeight: FontWeight.bold,
+    color: Brand.steer, width: 32, textAlign: 'right',
+  },
+
+  /* Pills (processing) */
+  pillRow: { flexDirection: 'row', gap: 8, marginTop: Space.xl, flexWrap: 'wrap', justifyContent: 'center' },
+  pill: {
+    paddingHorizontal: 12, paddingVertical: 5,
+    backgroundColor: `${Brand.steer}15`,
+    borderRadius: Radius.full,
+    borderWidth: 1, borderColor: `${Brand.steer}30`,
+  },
+  pillText: { fontSize: FontSize.xs, color: Brand.steer, fontWeight: FontWeight.semibold },
+
+  /* File chip */
+  fileChip: {
+    flexDirection: 'row', alignItems: 'center', gap: Space.sm,
+    backgroundColor: '#ffffff', borderRadius: Radius.xl,
+    padding: Space.md, marginBottom: Space.md, ...Shadows.sm,
+  },
+  fileChipIcon: {
+    width: 36, height: 36, borderRadius: Radius.sm,
+    backgroundColor: `${Brand.docuMind}15`,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fileChipBody: { flex: 1, minWidth: 0 },
+  fileChipName: {
+    fontSize: FontSize.sm, fontWeight: FontWeight.semibold,
+    color: '#0f172a', lineHeight: 18,
+  },
+  fileChipMeta: { fontSize: FontSize.xs, color: '#94a3b8', marginTop: 1 },
+  fileChipBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Semantic.successBg,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  fileChipDot: {
+    width: 5, height: 5, borderRadius: 3,
+    backgroundColor: Semantic.success,
+  },
+  fileChipBadgeText: { fontSize: FontSize.xs, color: Semantic.successText, fontWeight: FontWeight.bold },
+  newBtn: {
+    backgroundColor: `${Brand.steer}15`,
+    borderRadius: Radius.md, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  newBtnText: { color: Brand.steer, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+
+  /* Tab bar */
+  tabBar: {
+    flexDirection: 'row', backgroundColor: '#f1f5f9',
+    borderRadius: Radius.xl, padding: 4, marginBottom: Space.md,
+  },
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, borderRadius: Radius.lg, gap: 4,
+  },
+  tabBtnActive: {
+    backgroundColor: '#ffffff',
+    ...Shadows.sm,
+  },
+  tabIcon: { fontSize: 13 },
+  tabLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold, color: '#94a3b8' },
+  tabLabelActive: { color: Brand.steer },
+
+  /* Error card */
+  errorCard: {
+    backgroundColor: '#ffffff', borderRadius: Radius['2xl'],
+    padding: Space['4xl'], alignItems: 'center',
+    borderWidth: 1, borderColor: Semantic.dangerBg, ...Shadows.md,
+  },
+  errorIconWrap: {
+    width: 64, height: 64, borderRadius: Radius.xl,
+    backgroundColor: Semantic.dangerBg,
+    alignItems: 'center', justifyContent: 'center', marginBottom: Space.md,
+  },
+  errorIconText: { fontSize: 30 },
+  errorTitle: {
+    fontSize: FontSize.lg, fontWeight: FontWeight.bold,
+    color: '#0f172a', marginBottom: 6,
+  },
+  errorMsg: {
+    fontSize: FontSize.sm, color: Semantic.danger,
+    textAlign: 'center', lineHeight: 20, marginBottom: Space['3xl'],
+  },
+  retryBtn: {
+    width: '100%', backgroundColor: Brand.steer,
+    borderRadius: Radius.lg, paddingVertical: 14,
+    alignItems: 'center', ...Shadows.md,
+  },
+  retryText: { color: '#ffffff', fontSize: FontSize.base, fontWeight: FontWeight.bold },
 });
 
-const card = StyleSheet.create({
-  wrap:  { backgroundColor: 'white', borderRadius: 20, padding: 18, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1, marginBottom: 4 },
-  label: { fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 10 },
-  body:  { fontSize: 14, color: '#4b5563', lineHeight: 22 },
-  bullet:{ fontSize: 13, color: '#4b5563', lineHeight: 22, marginBottom: 4 },
-  empty: { fontSize: 13, color: '#9ca3af', fontStyle: 'italic' },
+const tabCard = StyleSheet.create({
+  wrap: {
+    backgroundColor: '#ffffff', borderRadius: Radius.xl,
+    padding: Space.lg, ...Shadows.sm, marginBottom: Space.xs,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: Space.md,
+    marginBottom: Space.md, paddingBottom: Space.md,
+    borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
+  },
+  iconBox: {
+    width: 40, height: 40, borderRadius: Radius.md,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  icon: { fontSize: 20 },
+  title: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: '#0f172a' },
+  meta:  { fontSize: FontSize.xs, color: '#94a3b8', marginTop: 1 },
+  body:  { fontSize: FontSize.sm, color: '#475569', lineHeight: 22, marginBottom: 8 },
+  empty: { fontSize: FontSize.sm, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingVertical: Space.xl },
 });
 
-const wf = StyleSheet.create({
-  container: { backgroundColor: 'white', borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
-  webview:   { width: '100%', height: 420, backgroundColor: 'white' },
+const actionCard = StyleSheet.create({
+  wrap: {
+    borderRadius: Radius.xl, padding: Space.md,
+    borderWidth: 1, marginBottom: Space.xs,
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginBottom: Space.sm,
+  },
+  icon:  { fontSize: 15 },
+  label: { flex: 1, fontSize: FontSize.xs, fontWeight: FontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.8 },
+  countBadge: {
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  countText: { fontSize: FontSize.xs, color: '#ffffff', fontWeight: FontWeight.bold },
+  row:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 5 },
+  dot:  { width: 6, height: 6, borderRadius: 3, marginTop: 7, flexShrink: 0 },
+  item: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
+});
+
+const wfStyle = StyleSheet.create({
+  wrap: {
+    backgroundColor: '#ffffff', borderRadius: Radius.xl,
+    overflow: 'hidden', ...Shadows.sm,
+  },
+  webview: { width: '100%', height: 400, backgroundColor: '#ffffff' },
 });

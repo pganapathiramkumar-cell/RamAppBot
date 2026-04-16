@@ -7,6 +7,7 @@ import { fetchSkills } from '../../features/skill/store/skillSlice';
 import { RootState, AppDispatch } from '../store';
 import { SkillGrid } from '../../features/skill/components/SkillGrid';
 import { SkillSummaryBar } from '../../features/skill/components/SkillSummaryBar';
+import { PageLayout } from '../../components/layout/PageLayout';
 
 export default function SkillPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -15,24 +16,48 @@ export default function SkillPage() {
   useEffect(() => { dispatch(fetchSkills('org-123')); }, [dispatch]);
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <Link href="/" className="text-sm text-gray-500 hover:text-skill mb-2 block">← Dashboard</Link>
-          <h1 className="text-3xl font-bold text-gray-900">Skill</h1>
-          <p className="text-gray-500">AI Capability Catalog</p>
+    <PageLayout
+      title="Skill Catalog"
+      subtitle="Manage and evaluate AI capabilities across your organisation"
+      breadcrumb="Skill"
+      action={
+        <Link href="/skill/create" className="btn-skill">
+          + New Skill
+        </Link>
+      }
+    >
+      <div className="space-y-6 animate-fade-in-up">
+        <SkillSummaryBar skills={skills} loading={loading} />
+
+        {loading ? (
+          <SkillGridSkeleton />
+        ) : (
+          <SkillGrid skills={skills} />
+        )}
+      </div>
+    </PageLayout>
+  );
+}
+
+function SkillGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="card p-5 space-y-3">
+          <div className="flex justify-between">
+            <div className="skeleton h-4 w-24" />
+            <div className="skeleton h-5 w-16 rounded-full" />
+          </div>
+          <div className="skeleton h-5 w-40" />
+          <div className="skeleton h-3 w-full" />
+          <div className="skeleton h-3 w-3/4" />
+          <div className="flex gap-2 pt-1">
+            <div className="skeleton h-3 w-16 rounded-full" />
+            <div className="skeleton h-3 w-12 rounded-full" />
+            <div className="skeleton h-3 w-20 rounded-full" />
+          </div>
         </div>
-        <Link href="/skill/create" className="btn-secondary">+ New Skill</Link>
-      </div>
-
-      <SkillSummaryBar skills={skills} />
-
-      <div className="mt-8">
-        {loading
-          ? <div className="text-gray-500">Loading skills…</div>
-          : <SkillGrid skills={skills} />
-        }
-      </div>
-    </main>
+      ))}
+    </div>
   );
 }

@@ -1,43 +1,51 @@
 'use client';
 
 import { useRef, useState, useEffect, DragEvent, ChangeEvent, useCallback } from 'react';
-import { AnalysisViewer } from '../../features/document/components/AnalysisViewer';
+import Link from 'next/link';
+import { MermaidChart } from '../../features/document/components/MermaidChart';
 import { Analysis } from '../../features/document/store/documentSlice';
 
-const DOC_API = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const DOC_API  = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
 const MAX_SIZE = 5 * 1024 * 1024;
-
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'failed';
 
-const FEATURES = [
-  { icon: '📝', label: 'Smart Summary',    desc: 'Concise executive summary of any PDF'    },
-  { icon: '✅', label: 'Action Points',    desc: 'Key tasks, dates, risks and obligations' },
-  { icon: '🔄', label: 'Workflow Diagram', desc: 'Visual flowchart of the document process' },
+const NAV_LINKS = [
+  { href: '/documents', label: 'DocuMind', active: true  },
+  { href: '/skill',     label: 'Skill AI', active: false },
+  { href: '/steer',     label: 'Steer AI', active: false },
 ];
 
 export default function RamBotPage() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [phase, setPhase]       = useState<Phase>('idle');
+  const inputRef   = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const [phase,    setPhase]    = useState<Phase>('idle');
   const [dragOver, setDragOver] = useState(false);
-  const [docId, setDocId]       = useState<string | null>(null);
+  const [docId,    setDocId]    = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [error, setError]       = useState<string | null>(null);
-  const [filename, setFilename] = useState<string>('');
-  const [dots, setDots]         = useState('');
+  const [error,    setError]    = useState<string | null>(null);
+  const [filename, setFilename] = useState('');
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (phase !== 'processing') return;
-    const t = setInterval(() => setDots((d) => (d.length >= 3 ? '' : d + '.')), 500);
+    const steps = [12, 28, 42, 56, 68, 79, 88, 93];
+    let i = 0;
+    const t = setInterval(() => {
+      if (i < steps.length) setProgress(steps[i++]); else clearInterval(t);
+    }, 2500);
     return () => clearInterval(t);
   }, [phase]);
 
   const poll = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${DOC_API}/analyses/${id}`);
+      const res  = await fetch(`${DOC_API}/analyses/${id}`);
       if (!res.ok) return;
       const data: Analysis = await res.json();
-      if (data.status === 'done') { setAnalysis(data); setPhase('done'); }
-      else if (data.status === 'failed') { setError('Analysis failed. Please try again.'); setPhase('failed'); }
+      if (data.status === 'done') {
+        setProgress(100);
+        setTimeout(() => { setAnalysis(data); setPhase('done'); }, 400);
+      } else if (data.status === 'failed') {
+        setError('Analysis failed. Please try again.'); setPhase('failed');
+      }
     } catch { /* keep polling */ }
   }, []);
 
@@ -55,7 +63,7 @@ export default function RamBotPage() {
       setError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max is 5 MB.`);
       setPhase('failed'); return;
     }
-    setFilename(file.name); setError(null); setPhase('uploading');
+    setFilename(file.name); setError(null); setProgress(0); setPhase('uploading');
     const form = new FormData();
     form.append('file', file);
     try {
@@ -86,169 +94,443 @@ export default function RamBotPage() {
 
   function reset() {
     setPhase('idle'); setDocId(null); setAnalysis(null);
-    setError(null); setFilename(''); setDots('');
+    setError(null); setFilename(''); setProgress(0);
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen flex flex-col" style={{ background: '#f0f4f8' }}>
 
-      {/* ── Navbar ── */}
-      <nav className="border-b border-white/8 backdrop-blur-sm sticky top-0 z-50 bg-[#0a0a0f]/80">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-sm">
+      {/* ── Top Nav ─────────────────────────────────────────── */}
+      <header style={{ background: '#0f1a2e', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px', height: 56,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
               🤖
             </div>
-            <span className="font-semibold text-sm tracking-tight">RamBot</span>
-            <span className="text-white/20 text-sm">|</span>
-            <span className="text-white/40 text-xs">AI Document Intelligence</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-white/40">Powered by Groq · Llama 3.3</span>
+            <span style={{ fontWeight: 700, color: '#fff', fontSize: 14, letterSpacing: '-0.3px' }}>
+              RamBot<span style={{ fontWeight: 400, opacity: 0.5 }}>Enterprise AI</span>
+            </span>
+          </Link>
+
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {NAV_LINKS.map((item) => (
+              <Link key={item.href} href={item.href}
+                style={{
+                  padding: '6px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                  textDecoration: 'none', transition: 'all 0.15s',
+                  color: item.active ? '#fff' : 'rgba(255,255,255,0.45)',
+                  background: item.active ? '#2563eb' : 'transparent',
+                }}>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              Groq · Llama 3.3
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#34d399', fontWeight: 600 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: '#34d399', display: 'inline-block' }} />
+                Online
+              </span>
+            </span>
+            <div style={{ width: 32, height: 32, borderRadius: 16, background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 700, fontSize: 13 }}>R</div>
           </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="max-w-4xl mx-auto px-6">
+      {/* ── Body — always two-panel layout ──────────────────── */}
+      <main style={{ flex: 1, maxWidth: 1280, margin: '0 auto', width: '100%',
+                     padding: '28px 24px', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
-        {/* ── Hero (idle only) ── */}
-        {phase === 'idle' && (
-          <>
-            <div className="pt-20 pb-12 text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-medium mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                Enterprise AI Platform
-              </div>
-              <h1 className="text-5xl font-bold tracking-tight mb-4 bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
-                Understand any document<br />in seconds
-              </h1>
-              <p className="text-white/50 text-lg max-w-xl mx-auto leading-relaxed">
-                Upload a PDF and RamBot instantly generates an executive summary,
-                structured action points, and a visual workflow diagram.
-              </p>
+        {/* ═══ LEFT PANEL — Upload zone ═══════════════════════ */}
+        <div style={{ width: 260, flexShrink: 0, position: 'sticky', top: 76 }}>
+
+          {/* Upload card */}
+          <div
+            role="button" tabIndex={0}
+            onClick={() => phase === 'idle' || phase === 'failed' ? inputRef.current?.click() : undefined}
+            onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            style={{
+              background: dragOver ? '#eff6ff' : '#ffffff',
+              borderRadius: 20,
+              border: `2px dashed ${dragOver ? '#2563eb' : '#bfdbfe'}`,
+              padding: '32px 20px',
+              textAlign: 'center',
+              cursor: phase === 'done' || phase === 'uploading' || phase === 'processing' ? 'default' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            }}
+          >
+            <input ref={inputRef} type="file" accept=".pdf,application/pdf"
+                   style={{ display: 'none' }} onChange={onInputChange}
+                   onClick={(e) => e.stopPropagation()} />
+
+            {/* Upload icon */}
+            <div style={{ width: 72, height: 72, borderRadius: 16, background: 'linear-gradient(135deg,#eff6ff,#eef2ff)',
+                          margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <rect x="6" y="5" width="20" height="26" rx="3" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1.2"/>
+                <rect x="10" y="5" width="20" height="26" rx="3" fill="#eff6ff" stroke="#bfdbfe" strokeWidth="1.2"/>
+                <line x1="20" y1="32" x2="20" y2="22" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round"/>
+                <polyline points="15,27 20,22 25,27" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
 
-            {/* Feature pills */}
-            <div className="flex justify-center gap-3 mb-10 flex-wrap">
-              {FEATURES.map(({ icon, label, desc }) => (
-                <div key={label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/8 hover:bg-white/8 transition-colors">
-                  <span className="text-base">{icon}</span>
+            {phase === 'idle' && (
+              <>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>
+                  {dragOver ? 'Release to upload' : 'Drag & Drop your PDF here'}
+                </p>
+                <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>or Browse Files</p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+                  style={{
+                    background: 'linear-gradient(135deg,#2563eb,#4f46e5)',
+                    color: '#fff', border: 'none', borderRadius: 10,
+                    padding: '9px 20px', fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer', width: '100%',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                  }}>
+                  📄 Choose PDF File
+                </button>
+                <p style={{ fontSize: 11, color: '#cbd5e1', marginTop: 12 }}>Max size 5 MB  ·  PDF format only</p>
+              </>
+            )}
+
+            {(phase === 'uploading' || phase === 'processing') && (
+              <>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', marginBottom: 4 }}>
+                  {phase === 'uploading' ? 'Uploading…' : 'Analysing…'}
+                </p>
+                <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{filename}</p>
+                {phase === 'processing' && (
                   <div>
-                    <p className="text-xs font-semibold text-white/80">{label}</p>
-                    <p className="text-xs text-white/35">{desc}</p>
+                    <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+                      <div style={{ height: '100%', borderRadius: 3, background: 'linear-gradient(90deg,#2563eb,#6366f1)',
+                                    width: `${progress}%`, transition: 'width 0.7s ease' }} />
+                    </div>
+                    <p style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, textAlign: 'right' }}>{progress}%</p>
                   </div>
+                )}
+              </>
+            )}
+
+            {phase === 'done' && (
+              <>
+                <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '8px 12px', marginBottom: 12,
+                              display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 3, background: '#10b981', display: 'inline-block' }} />
+                  <span style={{ fontSize: 12, color: '#065f46', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
+                    {filename}
+                  </span>
+                </div>
+                <button onClick={reset}
+                  style={{
+                    background: 'linear-gradient(135deg,#2563eb,#4f46e5)', color: '#fff',
+                    border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13,
+                    fontWeight: 700, cursor: 'pointer', width: '100%',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.2)',
+                  }}>
+                  + New Document
+                </button>
+              </>
+            )}
+
+            {phase === 'failed' && (
+              <>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#ef4444', marginBottom: 8 }}>Upload failed</p>
+                <button onClick={reset}
+                  style={{
+                    background: 'linear-gradient(135deg,#2563eb,#4f46e5)', color: '#fff',
+                    border: 'none', borderRadius: 10, padding: '9px 20px', fontSize: 13,
+                    fontWeight: 700, cursor: 'pointer', width: '100%',
+                  }}>
+                  Try Again
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Capabilities list (idle/failed state) */}
+          {(phase === 'idle' || phase === 'failed') && (
+            <div style={{ marginTop: 16, background: '#fff', borderRadius: 16,
+                          border: '1px solid #e2e8f0', padding: '16px 18px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase',
+                          letterSpacing: '0.08em', marginBottom: 12 }}>What you&apos;ll get</p>
+              {[
+                { icon: '📝', label: 'Smart Summary',   color: '#2563eb' },
+                { icon: '✅', label: 'Action Points',   color: '#10b981' },
+                { icon: '🔄', label: 'Workflow Diagram',color: '#7c3aed' },
+              ].map((f) => (
+                <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${f.color}15`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                    {f.icon}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{f.label}</span>
                 </div>
               ))}
             </div>
+          )}
+        </div>
 
-            {/* Upload zone */}
-            <div
-              role="button" tabIndex={0}
-              onClick={() => inputRef.current?.click()}
-              onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              className={`
-                relative rounded-2xl border-2 border-dashed p-16 text-center cursor-pointer transition-all duration-200
-                ${dragOver
-                  ? 'border-violet-500 bg-violet-500/10 scale-[1.01]'
-                  : 'border-white/10 bg-white/[0.03] hover:border-violet-500/50 hover:bg-white/[0.06]'}
-              `}
-            >
-              <input
-                ref={inputRef} type="file" accept=".pdf,application/pdf"
-                className="hidden" onChange={onInputChange}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/20 flex items-center justify-center text-2xl mx-auto mb-5">
-                📄
-              </div>
-              <p className="text-base font-semibold text-white/80 mb-1">
-                {dragOver ? 'Release to upload' : 'Drop your PDF here'}
+        {/* ═══ RIGHT PANEL — Results / Placeholder ════════════ */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* Section heading row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        marginBottom: 18 }}>
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.3px' }}>
+                Smart Summary
+              </h2>
+              <p style={{ fontSize: 12, color: '#94a3b8', margin: '3px 0 0', fontWeight: 500 }}>
+                {phase === 'done' ? 'AI-Generated Analysis Complete' : 'AI-Generated Executive Overview'}
               </p>
-              <p className="text-sm text-white/35 mb-5">or click to browse your files</p>
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors">
-                Choose PDF
+            </div>
+            {phase === 'done' && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999,
+                             background: '#f0fdf4', color: '#065f46', border: '1px solid #a7f3d0' }}>
+                ✓ Complete
               </span>
-              <p className="text-xs text-white/25 mt-4">Maximum file size: 5 MB · PDF only</p>
-            </div>
-          </>
-        )}
-
-        {/* ── UPLOADING ── */}
-        {phase === 'uploading' && (
-          <div className="py-24 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/20 flex items-center justify-center mx-auto mb-6">
-              <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-            <p className="text-base font-semibold text-white/80">Uploading file</p>
-            <p className="text-sm text-white/35 mt-1 max-w-xs mx-auto truncate">{filename}</p>
+            )}
           </div>
-        )}
 
-        {/* ── PROCESSING ── */}
-        {phase === 'processing' && (
-          <div className="py-24 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/20 flex items-center justify-center mx-auto mb-6">
-              <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-            <p className="text-base font-semibold text-white/80">Analysing your document{dots}</p>
-            <p className="text-sm text-white/35 mt-2 mb-8">
-              AI is reading the PDF — this takes about 15–30 seconds
-            </p>
-            <div className="flex justify-center gap-2">
-              {['Summary', 'Action Points', 'Workflow'].map((label) => (
-                <span key={label} className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-medium animate-pulse">
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* ── 3-column cards ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
 
-        {/* ── DONE ── */}
-        {phase === 'done' && analysis && (
-          <div className="py-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-white/5 border border-white/8">
-                <span className="text-sm">📄</span>
-                <span className="text-sm text-white/70 max-w-xs truncate font-medium">{filename}</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
-                  Done
-                </span>
-              </div>
-              <button
-                onClick={reset}
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium px-3 py-1.5 rounded-lg hover:bg-violet-500/10 transition-colors"
-              >
-                + New document
-              </button>
-            </div>
-            <AnalysisViewer analysis={analysis} />
-          </div>
-        )}
-
-        {/* ── FAILED ── */}
-        {phase === 'failed' && (
-          <div className="py-24 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-xl mx-auto mb-5">
-              ⚠️
-            </div>
-            <p className="text-base font-semibold text-white/80 mb-1">Something went wrong</p>
-            <p className="text-sm text-red-400/80 mb-8 max-w-sm mx-auto">{error}</p>
-            <button
-              onClick={reset}
-              className="px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors"
+            {/* Smart Summary card */}
+            <ResultCard
+              title="Smart Summary"
+              subtitle="AI-Generated Executive Overview"
+              icon="📝"
+              iconBg="#eff6ff"
+              isEmpty={phase !== 'done'}
+              isLoading={phase === 'uploading' || phase === 'processing'}
+              progress={progress}
             >
-              Try again
-            </button>
-          </div>
-        )}
+              {phase === 'done' && analysis && (
+                <SummaryContent summary={analysis.summary} />
+              )}
+            </ResultCard>
 
-        <div className="pb-16" />
+            {/* Action Points card */}
+            <ResultCard
+              title="Action Points"
+              subtitle="Key Tasks and Deadlines"
+              icon="✅"
+              iconBg="#f0fdf4"
+              isEmpty={phase !== 'done'}
+              isLoading={phase === 'uploading' || phase === 'processing'}
+              progress={progress}
+            >
+              {phase === 'done' && analysis && (
+                <ActionContent entities={analysis.entities} />
+              )}
+            </ResultCard>
+
+            {/* Workflow Diagram card */}
+            <ResultCard
+              title="Workflow Diagram"
+              subtitle="Automated Process Flowchart"
+              icon="🔄"
+              iconBg="#f5f3ff"
+              isEmpty={phase !== 'done'}
+              isLoading={phase === 'uploading' || phase === 'processing'}
+              progress={progress}
+            >
+              {phase === 'done' && analysis && (
+                <WorkflowContent chart={analysis.mermaid_chart} />
+              )}
+            </ResultCard>
+          </div>
+
+          {/* Error message */}
+          {phase === 'failed' && error && (
+            <div style={{ marginTop: 16, background: '#fef2f2', border: '1px solid #fecaca',
+                          borderRadius: 14, padding: '14px 18px', fontSize: 13, color: '#dc2626',
+                          fontWeight: 500 }}>
+              ⚠️ {error}
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* ── Footer ─────────────────────────────────────────── */}
+      <footer style={{ borderTop: '1px solid #e2e8f0', background: '#fff' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px', height: 44,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>© 2025 RamBot Enterprise</span>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>Powered by Groq · Llama 3.3</span>
+        </div>
+      </footer>
     </div>
   );
+}
+
+/* ── Reusable card wrapper ───────────────────────────────────── */
+function ResultCard({
+  title, subtitle, icon, iconBg,
+  isEmpty, isLoading, progress, children,
+}: {
+  title: string; subtitle: string; icon: string; iconBg: string;
+  isEmpty: boolean; isLoading: boolean; progress: number;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div style={{
+      background: '#fff', borderRadius: 18, border: '1px solid #e2e8f0',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column',
+      minHeight: 320,
+    }}>
+      {/* Card header */}
+      <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid #f1f5f9' }}>
+        <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', margin: 0, marginBottom: 2 }}>{title}</p>
+        <p style={{ fontSize: 11, color: '#94a3b8', margin: 0, fontWeight: 500 }}>{subtitle}</p>
+      </div>
+
+      {/* Card body */}
+      <div style={{ flex: 1, padding: '14px 18px', overflow: 'hidden' }}>
+        {isLoading ? (
+          <LoadingState progress={progress} />
+        ) : isEmpty ? (
+          <EmptyState icon={icon} iconBg={iconBg} title={title} />
+        ) : (
+          children
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Empty placeholder ───────────────────────────────────────── */
+function EmptyState({ icon, iconBg, title }: { icon: string; iconBg: string; title: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center', height: '100%', paddingTop: 24, paddingBottom: 24, textAlign: 'center' }}>
+      <div style={{ width: 52, height: 52, borderRadius: 14, background: iconBg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 26, marginBottom: 14, opacity: 0.7 }}>
+        {icon}
+      </div>
+      <p style={{ fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 4 }}>
+        {title} will appear here
+      </p>
+      <p style={{ fontSize: 11, color: '#e2e8f0', fontWeight: 400 }}>Upload a PDF to get started</p>
+      {/* Skeleton lines */}
+      <div style={{ width: '100%', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[85, 70, 90, 60].map((w, i) => (
+          <div key={i} style={{ height: 8, borderRadius: 4, background: '#f1f5f9', width: `${w}%` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Loading state ───────────────────────────────────────────── */
+function LoadingState({ progress }: { progress: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
+      {[90, 75, 85, 60, 80].map((w, i) => (
+        <div key={i} style={{
+          height: 10, borderRadius: 5,
+          background: `linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)`,
+          backgroundSize: '200% 100%',
+          animation: 'shimmer 1.4s ease infinite',
+          width: `${w}%`,
+          animationDelay: `${i * 0.1}s`,
+        }} />
+      ))}
+      {progress > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ height: 4, background: '#e2e8f0', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: 'linear-gradient(90deg,#2563eb,#6366f1)',
+                          width: `${progress}%`, transition: 'width 0.7s ease', borderRadius: 2 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Summary content ─────────────────────────────────────────── */
+function SummaryContent({ summary }: { summary: string }) {
+  const lines = summary
+    ? summary.split(/\n+/).map((l) => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean).slice(0, 6)
+    : [];
+  if (!lines.length) return <p style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No summary available.</p>;
+  return (
+    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {lines.map((l, i) => (
+        <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span style={{ width: 7, height: 7, borderRadius: 4, background: '#2563eb',
+                         flexShrink: 0, marginTop: 5 }} />
+          <span style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{l}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ── Action Points content ───────────────────────────────────── */
+const DOT_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
+const SECTIONS = [
+  { key: 'tasks'   as const, label: 'Tasks'   },
+  { key: 'dates'   as const, label: 'Dates'   },
+  { key: 'risks'   as const, label: 'Risks'   },
+  { key: 'names'   as const, label: 'Names'   },
+  { key: 'clauses' as const, label: 'Clauses' },
+];
+
+type Entities = Analysis['entities'];
+
+function ActionContent({ entities }: { entities: Entities }) {
+  const items: { text: string; color: string }[] = [];
+  SECTIONS.forEach((sec, si) => {
+    (entities[sec.key] ?? []).forEach((t) =>
+      items.push({ text: t, color: DOT_COLORS[si % DOT_COLORS.length] })
+    );
+  });
+  if (!items.length) return <p style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No action points extracted.</p>;
+  return (
+    <div>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9,
+                   maxHeight: 230, overflowY: 'auto' }}>
+        {items.map((item, i) => (
+          <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span style={{ width: 7, height: 7, borderRadius: 4, background: item.color,
+                           flexShrink: 0, marginTop: 5 }} />
+            <span style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+      {/* Legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12,
+                    paddingTop: 10, borderTop: '1px solid #f8fafc' }}>
+        {SECTIONS.filter((s) => (entities[s.key] ?? []).length > 0).map((sec, si) => (
+          <span key={sec.label} style={{ display: 'flex', alignItems: 'center', gap: 4,
+                                         fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, background: DOT_COLORS[si % DOT_COLORS.length], display: 'inline-block' }} />
+            {sec.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Workflow content ────────────────────────────────────────── */
+function WorkflowContent({ chart }: { chart?: string }) {
+  if (!chart) return <p style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No workflow available.</p>;
+  return <MermaidChart chart={chart} />;
 }

@@ -1,0 +1,112 @@
+// ─── Color Palette ────────────────────────────────────────────
+$color-bg:          #0a0a0a;
+$color-surface-1:   #111111;
+$color-surface-2:   #161616;
+$color-surface-3:   #1e1e1e;
+$color-border:      #2a2a2a;
+$color-border-subtle: #1e1e1e;
+
+$color-primary:        #6c47ff;
+$color-primary-hover:  #7c5bff;
+$color-primary-muted:  rgba(108, 71, 255, 0.12);
+$color-primary-ring:   rgba(108, 71, 255, 0.4);
+
+$color-secondary:      #0f766e;
+$color-secondary-hover: #0d9488;
+$color-secondary-muted: rgba(15, 118, 110, 0.12);
+
+$color-text-primary:   #f4f4f5;
+$color-text-secondary: #a1a1aa;
+$color-text-muted:     #71717a;
+$color-text-disabled:  #3f3f46;
+
+$color-success:     #22c55e;
+$color-success-bg:  rgba(34, 197, 94, 0.1);
+$color-warning:     #f59e0b;
+$color-warning-bg:  rgba(245, 158, 11, 0.1);
+$color-error:       #ef4444;
+$color-error-bg:    rgba(239, 68, 68, 0.1);
+$color-info:        #3b82f6;
+$color-info-bg:     rgba(59, 130, 246, 0.1);
+
+// ─── Typography ───────────────────────────────────────────────
+$font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+$font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+$text-xs:   0.6875rem; // 11px
+$text-sm:   0.8125rem; // 13px
+$text-base: 0.9375rem; // 15px
+$text-lg:   1.0625rem; // 17px
+$text-xl:   1.1875rem; // 19px
+$text-2xl:  1.375rem;  // 22px
+$text-3xl:  1.75rem;   // 28px
+$text-4xl:  2.125rem;  // 34px
+
+$weight-regular: 400;
+$weight-medium:  500;
+$weight-semibold: 600;
+$weight-bold:    700;
+
+$leading-tight:  1.25;
+$leading-snug:   1.375;
+$leading-normal: 1.5;
+$leading-relaxed: 1.625;
+
+// ─── Spacing (4px grid) ───────────────────────────────────────
+$space-1:  0.25rem;  // 4px
+$space-2:  0.5rem;   // 8px
+$space-3:  0.75rem;  // 12px
+$space-4:  1rem;     // 16px
+$space-5:  1.25rem;  // 20px
+$space-6:  1.5rem;   // 24px
+$space-8:  2rem;     // 32px
+$space-10: 2.5rem;   // 40px
+$space-12: 3rem;     // 48px
+$space-16: 4rem;     // 64px
+
+// ─── Border Radius ────────────────────────────────────────────
+$radius-sm:   4px;
+$radius-md:   6px;
+$radius-lg:   10px;
+$radius-xl:   14px;
+$radius-2xl:  20px;
+$radius-full: 9999px;
+
+// ─── Shadows ──────────────────────────────────────────────────
+$shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+$shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+$shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+$shadow-glow-primary: 0 0 0 3px rgba(108, 71, 255, 0.2);
+$shadow-glow-success: 0 0 0 3px rgba(34, 197, 94, 0.2);
+
+// ─── Layout ───────────────────────────────────────────────────
+$sidebar-width:       228px;
+$sidebar-collapsed:   60px;
+$topbar-height:       56px;
+$content-max-width:   1400px;
+
+// ─── Z-index ──────────────────────────────────────────────────
+$z-base:    0;
+$z-raised:  10;
+$z-overlay: 50;
+$z-sidebar: 100;
+$z-topbar:  90;
+$z-modal:   1000;
+$z-toast:   2000;
+
+// ─── Transitions ──────────────────────────────────────────────
+$ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+$ease-in:      cubic-bezier(0.4, 0, 1, 1);
+$ease-out:     cubic-bezier(0, 0, 0.2, 1);
+
+$duration-fast:   120ms;
+$duration-base:   200ms;
+$duration-slow:   350ms;
+
+// ─── Breakpoints ──────────────────────────────────────────────
+$bp-sm:  640px;
+$bp-md:  768px;
+$bp-lg:  1024px;
+$bp-xl:  1280px;
+$bp-2xl: 1536px;
