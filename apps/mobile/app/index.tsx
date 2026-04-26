@@ -551,6 +551,11 @@ export default function HomeScreen() {
                 </Animated.View>
               ))}
             </View>
+
+            {/* Cancel button */}
+            <TouchableOpacity style={s.cancelBtn} onPress={reset} activeOpacity={0.8}>
+              <Text style={s.cancelBtnText}>✕  Cancel Analysis</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -594,6 +599,11 @@ export default function HomeScreen() {
             {activeTab === 'summary'  && <SummaryTab  summary={analysis.summary} snapshot={analysis.snapshot} />}
             {activeTab === 'actions'  && <ActionsTab  entities={analysis.entities}      />}
             {activeTab === 'workflow' && <WorkflowTab steps={analysis.workflow}          />}
+
+            {/* Upload new document */}
+            <TouchableOpacity style={s.uploadNewBtn} onPress={reset} activeOpacity={0.85}>
+              <Text style={s.uploadNewBtnText}>⬆️  Upload New Document</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1018,6 +1028,37 @@ const s = StyleSheet.create({
     ...Shadows.md,
   },
   retryText: { color: '#ffffff', fontSize: FontSize.base, fontWeight: FontWeight.bold },
+
+  /* Cancel button (processing phase) */
+  cancelBtn: {
+    marginTop:        Space.xl,
+    borderWidth:      1.5,
+    borderColor:      '#e2e8f0',
+    borderRadius:     Radius.lg,
+    paddingVertical:  11,
+    paddingHorizontal: Space['3xl'],
+    alignItems:       'center',
+  },
+  cancelBtnText: {
+    fontSize:   FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color:      '#94a3b8',
+  },
+
+  /* Upload new document button (done phase) */
+  uploadNewBtn: {
+    marginTop:       Space.xl,
+    backgroundColor: Brand.steer,
+    borderRadius:    Radius.lg,
+    paddingVertical: 15,
+    alignItems:      'center',
+    ...Shadows.md,
+  },
+  uploadNewBtnText: {
+    fontSize:   FontSize.base,
+    fontWeight: FontWeight.bold,
+    color:      '#ffffff',
+  },
 
   footer: {
     textAlign: 'center',
