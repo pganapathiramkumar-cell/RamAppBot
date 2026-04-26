@@ -9,7 +9,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
     NEXT_PUBLIC_DOCUMENT_API_URL:
-      process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1',
+      process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'https://ramappbot.onrender.com/api/v1',
   },
 };
 

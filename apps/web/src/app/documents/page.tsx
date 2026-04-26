@@ -12,11 +12,9 @@ type MobileTab = 'summary' | 'actions' | 'workflow';
 
 const NAV_LINKS = [
   { href: '/documents', label: 'DocuMind', active: true },
-  { href: '/skill', label: 'Skill AI', active: false },
-  { href: '/steer', label: 'Steer AI', active: false },
 ];
 
-export default function RamBotPage() {
+export default function RamVectorPage() {
   const inputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const [phase, setPhase] = useState<Phase>('idle');
   const [dragOver, setDragOver] = useState(false);
@@ -36,7 +34,7 @@ export default function RamBotPage() {
   }, []);
 
   useEffect(() => {
-    document.title = 'DocuMind | RamBot';
+    document.title = 'DocuMind | RamVector';
   }, []);
 
   useEffect(() => {
@@ -193,10 +191,10 @@ export default function RamBotPage() {
                 flexShrink: 0,
               }}
             >
-              🤖
+              RV
             </div>
             <span style={{ fontWeight: 700, color: '#fff', fontSize: 14, letterSpacing: '-0.3px' }}>
-              RamBot<span style={{ fontWeight: 400, opacity: 0.5 }}>Enterprise AI</span>
+              RamVector
             </span>
           </Link>
 
@@ -243,7 +241,6 @@ export default function RamBotPage() {
                   gap: 6,
                 }}
               >
-                AI Workspace
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#34d399', fontWeight: 600 }}>
                   <span
                     style={{
@@ -254,7 +251,7 @@ export default function RamBotPage() {
                       display: 'inline-block',
                     }}
                   />
-                  Ready
+                  Live
                 </span>
               </span>
             )}
@@ -685,8 +682,8 @@ export default function RamBotPage() {
             gap: isMobile ? 4 : 0,
           }}
         >
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>© 2025 RamBot Enterprise</span>
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>Unified AI Workspace</span>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>&copy; 2026 RamVector. All rights reserved.</span>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>Intelligent Document Platform</span>
         </div>
       </footer>
     </div>

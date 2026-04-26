@@ -8,10 +8,10 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   metadataBase: new URL('http://localhost:3000'),
   title: {
-    default: 'RamBot Enterprise',
-    template: '%s | RamBot Enterprise',
+    default: 'RamVector',
+    template: '%s | RamVector',
   },
-  description: 'Enterprise AI workspace for document intelligence, strategic steering, and skill management.',
+  description: 'RamVector - Intelligent document analysis platform. Upload PDFs and instantly extract summaries, action points, and workflow diagrams powered by AI.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

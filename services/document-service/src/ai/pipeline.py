@@ -23,12 +23,11 @@ class DocumentAnalysisPipeline:
 
     Result shape:
         {
-            "snapshot":       {},
-            "summary":        str,
-            "entities":       { names, dates, clauses, tasks, risks },
-            "workflow":       [],               # step cards removed — visual only
-            "mermaid_chart":  str,              # Mermaid TD flowchart
-            "analysed_at":    str               # ISO-8601 UTC
+            "snapshot":    {},
+            "summary":     str,
+            "entities":    { names, dates, clauses, tasks, risks },
+            "workflow":    [ { step_number, action, priority, description, owner, deadline } ],
+            "analysed_at": str   # ISO-8601 UTC
         }
     """
 
@@ -43,19 +42,18 @@ class DocumentAnalysisPipeline:
         if not text or not text.strip():
             raise EmptyDocumentError()
 
-        # Run the independent analysis chains in parallel against the same source text.
-        snapshot, summary, entities, mermaid_chart = await asyncio.gather(
+        # Run all chains in parallel against the same source text.
+        snapshot, summary, entities, workflow = await asyncio.gather(
             self._snapshot.run(text),
             self._summarize.run(text),
             self._extract.run(text),
-            self._workflow.run(text),      # ← document text, not summary
+            self._workflow.run(text),
         )
 
         return {
-            "snapshot":      snapshot,
-            "summary":       summary,
-            "entities":      entities,
-            "workflow":      [],            # step cards removed
-            "mermaid_chart": mermaid_chart,
-            "analysed_at":   datetime.now(timezone.utc).isoformat(),
+            "snapshot":    snapshot,
+            "summary":     summary,
+            "entities":    entities,
+            "workflow":    workflow,
+            "analysed_at": datetime.now(timezone.utc).isoformat(),
         }

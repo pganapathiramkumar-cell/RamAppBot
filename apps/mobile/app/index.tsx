@@ -1,5 +1,1045 @@
-import { Redirect } from "expo-router";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+  ScrollView, Alert, Platform, Animated, StatusBar,
+} from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import {
+  Brand, Category, Semantic, Shadows,
+  FontSize, FontWeight, Radius, Space,
+} from '@/constants/theme';
 
-export default function Index() {
-  return <Redirect href="/(tabs)" />;
+const API      = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const MAX_SIZE = 5 * 1024 * 1024;
+
+type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'failed';
+type Tab   = 'summary' | 'actions' | 'workflow';
+
+interface Entities {
+  names: string[]; dates: string[]; clauses: string[];
+  tasks: string[]; risks: string[];
 }
+interface WorkflowStep {
+  step_number: number;
+  action:      string;
+  priority:    'High' | 'Medium' | 'Low';
+  description?: string;
+  owner?:       string;
+  deadline?:    string;
+}
+interface Analysis {
+  document_id: string; status: string;
+  summary: string; entities: Entities;
+  workflow: WorkflowStep[];
+}
+
+const PRIORITY_CONFIG = {
+  High:   { color: Semantic.danger,  bg: Semantic.dangerBg,  label: 'High'   },
+  Medium: { color: Semantic.warning, bg: Semantic.warningBg, label: 'Medium' },
+  Low:    { color: Semantic.success, bg: Semantic.successBg, label: 'Low'    },
+};
+
+const CATS = [
+  { key: 'names'   as keyof Entities, label: 'Parties & Names',      icon: '👤', ...Category.names   },
+  { key: 'dates'   as keyof Entities, label: 'Key Dates',            icon: '📅', ...Category.dates   },
+  { key: 'clauses' as keyof Entities, label: 'Contract Clauses',     icon: '📋', ...Category.clauses },
+  { key: 'tasks'   as keyof Entities, label: 'Tasks & Deliverables', icon: '✅', ...Category.tasks   },
+  { key: 'risks'   as keyof Entities, label: 'Risks & Liabilities',  icon: '⚠️', ...Category.risks   },
+];
+
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'summary',  label: 'Summary',       icon: '📝' },
+  { id: 'actions',  label: 'Action Points', icon: '✅' },
+  { id: 'workflow', label: 'Workflow',       icon: '🔄' },
+];
+
+/* ── RamVector geometric logo ─────────────────────────────────── */
+function RamVectorLogo() {
+  return (
+    <View style={logo.wrap}>
+      {/* Outer halo */}
+      <View style={logo.halo} />
+      {/* Rotated diamond */}
+      <View style={logo.diamond} />
+      {/* Second smaller diamond accent */}
+      <View style={logo.diamondAccent} />
+      {/* Initials centred on top */}
+      <View style={logo.initialsWrap}>
+        <Text style={logo.initials}>RV</Text>
+      </View>
+    </View>
+  );
+}
+
+/* ── Summary tab ──────────────────────────────────────────────── */
+function SummaryTab({ summary }: { summary: string }) {
+  const paras = summary?.split(/\n\n+/).map((p) => p.trim()).filter(Boolean) ?? [];
+  return (
+    <View style={card.wrap}>
+      <View style={card.headerRow}>
+        <View style={[card.iconBox, { backgroundColor: `${Brand.steer}15` }]}>
+          <Text style={card.icon}>📝</Text>
+        </View>
+        <View>
+          <Text style={card.title}>Executive Summary</Text>
+          <Text style={card.meta}>AI-generated overview</Text>
+        </View>
+      </View>
+      {paras.length > 0
+        ? paras.map((p, i) => <Text key={i} style={card.body}>{p}</Text>)
+        : <Text style={card.empty}>No summary available.</Text>
+      }
+    </View>
+  );
+}
+
+/* ── Actions tab ──────────────────────────────────────────────── */
+function ActionsTab({ entities }: { entities: Entities }) {
+  const filled = CATS.filter((c) => (entities[c.key] as string[])?.length > 0);
+  if (!filled.length) {
+    return (
+      <View style={card.wrap}>
+        <Text style={card.empty}>No action points extracted.</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: Space.sm }}>
+      {filled.map((cat) => {
+        const items = entities[cat.key] as string[];
+        return (
+          <View key={cat.key} style={[actionCard.wrap, { backgroundColor: cat.bg, borderColor: cat.border }]}>
+            <View style={actionCard.header}>
+              <Text style={actionCard.icon}>{cat.icon}</Text>
+              <Text style={[actionCard.label, { color: cat.text }]}>{cat.label}</Text>
+              <View style={[actionCard.badge, { backgroundColor: cat.accent }]}>
+                <Text style={actionCard.badgeText}>{items.length}</Text>
+              </View>
+            </View>
+            {items.map((item, i) => (
+              <View key={i} style={actionCard.row}>
+                <View style={[actionCard.dot, { backgroundColor: cat.accent }]} />
+                <Text style={[actionCard.item, { color: cat.text }]}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/* ── Workflow tab — native flow stepper ───────────────────────── */
+function WorkflowTab({ steps }: { steps: WorkflowStep[] }) {
+  if (!steps || steps.length === 0) {
+    return (
+      <View style={card.wrap}>
+        <Text style={card.empty}>No workflow steps available.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={card.wrap}>
+      {/* Header */}
+      <View style={card.headerRow}>
+        <View style={[card.iconBox, { backgroundColor: `${Brand.docuMind}15` }]}>
+          <Text style={card.icon}>🔄</Text>
+        </View>
+        <View>
+          <Text style={card.title}>Document Workflow</Text>
+          <Text style={card.meta}>{steps.length} step{steps.length !== 1 ? 's' : ''} identified</Text>
+        </View>
+      </View>
+
+      {/* Steps */}
+      {steps.map((step, index) => {
+        const isLast = index === steps.length - 1;
+        const p = PRIORITY_CONFIG[step.priority] ?? PRIORITY_CONFIG.Low;
+        return (
+          <View key={step.step_number} style={flow.row}>
+
+            {/* Left spine: circle + connector line */}
+            <View style={flow.spine}>
+              <View style={[flow.circle, { backgroundColor: p.color }]}>
+                <Text style={flow.circleNum}>{step.step_number}</Text>
+              </View>
+              {!isLast && <View style={[flow.line, { backgroundColor: `${p.color}30` }]} />}
+            </View>
+
+            {/* Right content */}
+            <View style={[flow.content, !isLast && flow.contentGap]}>
+              <View style={flow.topRow}>
+                <Text style={flow.action} numberOfLines={2}>{step.action}</Text>
+                <View style={[flow.badge, { backgroundColor: p.bg }]}>
+                  <Text style={[flow.badgeText, { color: p.color }]}>{p.label}</Text>
+                </View>
+              </View>
+              {step.description ? (
+                <Text style={flow.desc}>{step.description}</Text>
+              ) : null}
+              {(step.owner || step.deadline) ? (
+                <View style={flow.metaRow}>
+                  {step.owner    ? <Text style={flow.metaText}>👤 {step.owner}</Text>    : null}
+                  {step.deadline ? <Text style={flow.metaText}>📅 {step.deadline}</Text> : null}
+                </View>
+              ) : null}
+            </View>
+
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/* ── Main screen ──────────────────────────────────────────────── */
+export default function HomeScreen() {
+  const [phase,     setPhase]     = useState<Phase>('idle');
+  const [docId,     setDocId]     = useState<string | null>(null);
+  const [analysis,  setAnalysis]  = useState<Analysis | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
+  const [filename,  setFilename]  = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const [progress,  setProgress]  = useState(0);
+  const pulseAnim    = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  /* Pulse animation during processing */
+  useEffect(() => {
+    if (phase !== 'processing') { pulseAnim.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1,   duration: 700, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [phase, pulseAnim]);
+
+  /* Progress bar animation */
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress, duration: 600, useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
+
+  /* Simulated progress steps while AI processes */
+  useEffect(() => {
+    if (phase !== 'processing') return;
+    const steps = [15, 30, 45, 60, 72, 83, 91];
+    let i = 0;
+    const t = setInterval(() => {
+      if (i < steps.length) setProgress(steps[i++]); else clearInterval(t);
+    }, 2500);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  const poll = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API}/analyses/${id}`);
+      if (!res.ok) return;
+      const data: Analysis = await res.json();
+      if (data.status === 'done') {
+        setProgress(100);
+        setTimeout(() => { setAnalysis(data); setPhase('done'); }, 500);
+      } else if (data.status === 'failed') {
+        setError('Analysis failed. Please try again.');
+        setPhase('failed');
+      }
+    } catch { /* keep polling */ }
+  }, []);
+
+  useEffect(() => {
+    if (phase !== 'processing' || !docId) return;
+    const t = setInterval(() => poll(docId), 3000);
+    return () => clearInterval(t);
+  }, [phase, docId, poll]);
+
+  async function pickAndUpload() {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf', copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (asset.size && asset.size > MAX_SIZE) {
+      Alert.alert('File too large', 'Please choose a PDF under 5 MB.');
+      return;
+    }
+    setFilename(asset.name);
+    setError(null);
+    setProgress(0);
+    setPhase('uploading');
+
+    const form = new FormData();
+    form.append('file', { uri: asset.uri, name: asset.name, type: 'application/pdf' } as unknown as Blob);
+
+    const controller = new AbortController();
+    const uploadTimer = setTimeout(() => controller.abort(), 30_000);
+
+    try {
+      const res = await fetch(`${API}/documents/upload`, {
+        method: 'POST',
+        body: form,
+        signal: controller.signal,
+      });
+      clearTimeout(uploadTimer);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.detail?.message ?? `Upload failed (${res.status})`);
+      }
+      const doc = await res.json();
+      setDocId(doc.id);
+      setPhase('processing');
+    } catch (e: unknown) {
+      clearTimeout(uploadTimer);
+      if (e instanceof Error && e.name === 'AbortError') {
+        setError('Upload timed out. Make sure the server is running and your device is on the same network.');
+      } else {
+        setError(e instanceof Error ? e.message : 'Could not reach the document service.');
+      }
+      setPhase('failed');
+    }
+  }
+
+  function reset() {
+    setPhase('idle');
+    setDocId(null);
+    setAnalysis(null);
+    setError(null);
+    setFilename('');
+    setActiveTab('summary');
+    setProgress(0);
+  }
+
+  return (
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f1a2e" />
+
+      {/* ── Header bar ── */}
+      <View style={s.header}>
+        <View style={s.headerLeft}>
+          <View style={s.headerLogoMark}>
+            <Text style={s.headerLogoText}>RV</Text>
+          </View>
+          <Text style={s.headerBrand}>RamVector</Text>
+        </View>
+        <View style={s.livePill}>
+          <View style={s.liveDot} />
+          <Text style={s.liveText}>Live</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── IDLE: hero + upload ── */}
+        {phase === 'idle' && (
+          <>
+            {/* Hero */}
+            <View style={s.hero}>
+              <RamVectorLogo />
+              <Text style={s.heroTitle}>RamVector</Text>
+              <Text style={s.heroSub}>Intelligent Document Analysis</Text>
+              <Text style={s.heroDesc}>
+                Upload any PDF and instantly receive an AI-generated executive
+                summary, structured action points and a visual workflow diagram.
+              </Text>
+              {/* Feature chips */}
+              <View style={s.chips}>
+                {[
+                  { icon: '📝', label: 'Smart Summary',    color: Brand.steer    },
+                  { icon: '✅', label: 'Action Points',    color: Brand.skill    },
+                  { icon: '🔄', label: 'Workflow Diagram', color: Brand.docuMind },
+                ].map((f) => (
+                  <View key={f.label} style={[s.chip, { borderColor: `${f.color}35` }]}>
+                    <Text style={s.chipIcon}>{f.icon}</Text>
+                    <Text style={[s.chipLabel, { color: f.color }]}>{f.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Upload zone */}
+            <TouchableOpacity
+              style={s.uploadZone}
+              onPress={pickAndUpload}
+              activeOpacity={0.85}
+            >
+              <View style={s.uploadIconWrap}>
+                <Text style={s.uploadIconText}>⬆️</Text>
+              </View>
+              <Text style={s.uploadTitle}>Tap to upload a PDF</Text>
+              <Text style={s.uploadSub}>Maximum 5 MB · PDF only</Text>
+              <View style={s.uploadBtn}>
+                <Text style={s.uploadBtnText}>Choose File</Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ── UPLOADING ── */}
+        {phase === 'uploading' && (
+          <View style={s.stateCard}>
+            <ActivityIndicator size="large" color={Brand.steer} />
+            <Text style={s.stateTitle}>Uploading your PDF…</Text>
+            <Text style={s.stateSub} numberOfLines={1}>{filename}</Text>
+          </View>
+        )}
+
+        {/* ── PROCESSING ── */}
+        {phase === 'processing' && (
+          <View style={s.stateCard}>
+            <View style={s.spinnerRing}>
+              <ActivityIndicator size="large" color={Brand.steer} />
+              <Text style={s.spinnerEmoji}>🤖</Text>
+            </View>
+            <Text style={s.stateTitle}>Analysing document…</Text>
+            <Text style={s.stateSub}>This takes about 15–30 seconds.</Text>
+            <View style={s.progressWrap}>
+              <View style={s.progressTrack}>
+                <Animated.View
+                  style={[
+                    s.progressFill,
+                    { width: progressAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) },
+                  ]}
+                />
+              </View>
+              <Text style={s.progressPct}>{progress}%</Text>
+            </View>
+            <View style={s.pillRow}>
+              {['Summary', 'Action Points', 'Workflow'].map((l) => (
+                <Animated.View key={l} style={[s.pill, { opacity: pulseAnim }]}>
+                  <Text style={s.pillText}>{l}</Text>
+                </Animated.View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── DONE ── */}
+        {phase === 'done' && analysis && (
+          <View>
+            {/* File chip */}
+            <View style={s.fileChip}>
+              <View style={s.fileChipIcon}><Text>📄</Text></View>
+              <View style={s.fileChipBody}>
+                <Text style={s.fileChipName} numberOfLines={1}>{filename}</Text>
+                <Text style={s.fileChipMeta}>Analysis complete</Text>
+              </View>
+              <View style={s.doneBadge}>
+                <View style={s.doneDot} />
+                <Text style={s.doneBadgeText}>Done</Text>
+              </View>
+              <TouchableOpacity onPress={reset} style={s.newBtn}>
+                <Text style={s.newBtnText}>+ New</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Tab bar */}
+            <View style={s.tabBar}>
+              {TABS.map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  onPress={() => setActiveTab(t.id)}
+                  style={[s.tabBtn, activeTab === t.id && s.tabBtnActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={s.tabIcon}>{t.icon}</Text>
+                  <Text style={[s.tabLabel, activeTab === t.id && s.tabLabelActive]}>
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Tab content */}
+            {activeTab === 'summary'  && <SummaryTab  summary={analysis.summary}        />}
+            {activeTab === 'actions'  && <ActionsTab  entities={analysis.entities}      />}
+            {activeTab === 'workflow' && <WorkflowTab steps={analysis.workflow}          />}
+          </View>
+        )}
+
+        {/* ── FAILED ── */}
+        {phase === 'failed' && (
+          <View style={s.errorCard}>
+            <View style={s.errorIconWrap}><Text style={s.errorIconText}>⚠️</Text></View>
+            <Text style={s.errorTitle}>Something went wrong</Text>
+            <Text style={s.errorMsg}>{error}</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={reset} activeOpacity={0.85}>
+              <Text style={s.retryText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Text style={s.footer}>© 2026 RamVector. All rights reserved.</Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+/* ── Logo styles ───────────────────────────────────────────────── */
+const logo = StyleSheet.create({
+  wrap: {
+    width: 104,
+    height: 104,
+    alignSelf: 'center',
+    marginBottom: Space['2xl'],
+  },
+  halo: {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 52,
+    backgroundColor: `${Brand.steer}10`,
+    borderWidth: 1.5,
+    borderColor: `${Brand.steer}20`,
+  },
+  diamond: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 72,
+    height: 72,
+    backgroundColor: Brand.steer,
+    borderRadius: 16,
+    transform: [{ rotate: '45deg' }],
+  },
+  diamondAccent: {
+    position: 'absolute',
+    top: 28,
+    left: 28,
+    width: 48,
+    height: 48,
+    backgroundColor: `${Brand.steerDark}`,
+    borderRadius: 10,
+    transform: [{ rotate: '45deg' }],
+    opacity: 0.45,
+  },
+  initialsWrap: {
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initials: {
+    fontSize: 26,
+    fontWeight: FontWeight.extrabold,
+    color: '#ffffff',
+    letterSpacing: -1,
+  },
+});
+
+/* ── Screen styles ─────────────────────────────────────────────── */
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#f8fafc' },
+
+  /* Header */
+  header: {
+    backgroundColor: '#0f1a2e',
+    paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight ?? 24) + 8,
+    paddingBottom: 14,
+    paddingHorizontal: Space.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
+  headerLogoMark: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Brand.steer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogoText: {
+    fontSize: 11,
+    fontWeight: FontWeight.extrabold,
+    color: '#fff',
+    letterSpacing: -0.5,
+  },
+  headerBrand: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.bold,
+    color: '#ffffff',
+    letterSpacing: -0.3,
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.25)',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  liveText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    color: '#10b981',
+  },
+
+  scroll: {
+    paddingHorizontal: Space.xl,
+    paddingTop: Space['2xl'],
+    paddingBottom: Space['5xl'],
+  },
+
+  /* Hero */
+  hero: { alignItems: 'center', marginBottom: Space['3xl'] },
+  heroTitle: {
+    fontSize: FontSize['3xl'],
+    fontWeight: FontWeight.extrabold,
+    color: '#0f172a',
+    letterSpacing: -1,
+    marginBottom: 6,
+  },
+  heroSub: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Brand.steer,
+    marginBottom: Space.md,
+  },
+  heroDesc: {
+    fontSize: FontSize.sm,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Space.xl,
+    maxWidth: 320,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Space.sm,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#ffffff',
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    ...Shadows.sm,
+  },
+  chipIcon:  { fontSize: 13 },
+  chipLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+
+  /* Upload zone */
+  uploadZone: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radius['2xl'],
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#bfdbfe',
+    padding: Space['4xl'],
+    alignItems: 'center',
+    marginBottom: Space.lg,
+    ...Shadows.md,
+  },
+  uploadIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: Radius.xl,
+    backgroundColor: `${Brand.docuMind}12`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Space.lg,
+  },
+  uploadIconText: { fontSize: 36 },
+  uploadTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  uploadSub: {
+    fontSize: FontSize.sm,
+    color: '#94a3b8',
+    marginBottom: Space.xl,
+  },
+  uploadBtn: {
+    backgroundColor: Brand.steer,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Space['3xl'],
+    paddingVertical: 13,
+    ...Shadows.md,
+  },
+  uploadBtnText: {
+    color: '#ffffff',
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.bold,
+  },
+
+  /* State cards (uploading / processing) */
+  stateCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radius['2xl'],
+    padding: Space['4xl'],
+    alignItems: 'center',
+    ...Shadows.md,
+    marginBottom: Space.lg,
+  },
+  stateTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: '#0f172a',
+    marginTop: Space.lg,
+    textAlign: 'center',
+  },
+  stateSub: {
+    fontSize: FontSize.sm,
+    color: '#94a3b8',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  spinnerRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: `${Brand.steer}25`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinnerEmoji: { position: 'absolute', fontSize: 24 },
+  progressWrap: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: Space.xl,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: Radius.full,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: Radius.full,
+    backgroundColor: Brand.steer,
+  },
+  progressPct: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    color: Brand.steer,
+    width: 32,
+    textAlign: 'right',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: Space.xl,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: `${Brand.steer}12`,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: `${Brand.steer}25`,
+  },
+  pillText: {
+    fontSize: FontSize.xs,
+    color: Brand.steer,
+    fontWeight: FontWeight.semibold,
+  },
+
+  /* File chip */
+  fileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    backgroundColor: '#ffffff',
+    borderRadius: Radius.xl,
+    padding: Space.md,
+    marginBottom: Space.md,
+    ...Shadows.sm,
+  },
+  fileChipIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
+    backgroundColor: `${Brand.docuMind}12`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileChipBody: { flex: 1, minWidth: 0 },
+  fileChipName: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: '#0f172a',
+  },
+  fileChipMeta: { fontSize: FontSize.xs, color: '#94a3b8', marginTop: 1 },
+  doneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Semantic.successBg,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  doneDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: Semantic.success,
+  },
+  doneBadgeText: {
+    fontSize: FontSize.xs,
+    color: Semantic.successText,
+    fontWeight: FontWeight.bold,
+  },
+  newBtn: {
+    backgroundColor: `${Brand.steer}12`,
+    borderRadius: Radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  newBtnText: { color: Brand.steer, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+
+  /* Tab bar */
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: Radius.xl,
+    padding: 4,
+    marginBottom: Space.md,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: Radius.lg,
+    gap: 4,
+  },
+  tabBtnActive: { backgroundColor: '#ffffff', ...Shadows.sm },
+  tabIcon:  { fontSize: 13 },
+  tabLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.semibold, color: '#94a3b8' },
+  tabLabelActive: { color: Brand.steer },
+
+  /* Error */
+  errorCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radius['2xl'],
+    padding: Space['4xl'],
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Semantic.dangerBg,
+    ...Shadows.md,
+    marginBottom: Space.lg,
+  },
+  errorIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.xl,
+    backgroundColor: Semantic.dangerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Space.md,
+  },
+  errorIconText: { fontSize: 30 },
+  errorTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  errorMsg: {
+    fontSize: FontSize.sm,
+    color: Semantic.danger,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Space['3xl'],
+  },
+  retryBtn: {
+    width: '100%',
+    backgroundColor: Brand.steer,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
+    alignItems: 'center',
+    ...Shadows.md,
+  },
+  retryText: { color: '#ffffff', fontSize: FontSize.base, fontWeight: FontWeight.bold },
+
+  footer: {
+    textAlign: 'center',
+    fontSize: FontSize.xs,
+    color: '#cbd5e1',
+    marginTop: Space['3xl'],
+  },
+});
+
+/* ── Result card styles ────────────────────────────────────────── */
+const card = StyleSheet.create({
+  wrap: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radius.xl,
+    padding: Space.lg,
+    ...Shadows.sm,
+    marginBottom: Space.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.md,
+    marginBottom: Space.md,
+    paddingBottom: Space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon:  { fontSize: 20 },
+  title: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: '#0f172a' },
+  meta:  { fontSize: FontSize.xs, color: '#94a3b8', marginTop: 1 },
+  body:  { fontSize: FontSize.sm, color: '#475569', lineHeight: 22, marginBottom: 8 },
+  empty: {
+    fontSize: FontSize.sm,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: Space.xl,
+  },
+});
+
+const actionCard = StyleSheet.create({
+  wrap: {
+    borderRadius: Radius.xl,
+    padding: Space.md,
+    borderWidth: 1,
+    marginBottom: Space.xs,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: Space.sm,
+  },
+  icon:  { fontSize: 15 },
+  label: {
+    flex: 1,
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  badge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontSize: FontSize.xs, color: '#ffffff', fontWeight: FontWeight.bold },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 5 },
+  dot: { width: 6, height: 6, borderRadius: 3, marginTop: 7, flexShrink: 0 },
+  item: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
+});
+
+/* ── Flow stepper styles ───────────────────────────────────────── */
+const flow = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems:    'stretch',
+    gap:           Space.md,
+  },
+  spine: {
+    alignItems: 'center',
+    width:      28,
+    flexShrink: 0,
+  },
+  circle: {
+    width:          28,
+    height:         28,
+    borderRadius:   14,
+    alignItems:     'center',
+    justifyContent: 'center',
+    flexShrink:     0,
+  },
+  circleNum: {
+    fontSize:   11,
+    fontWeight: FontWeight.extrabold,
+    color:      '#ffffff',
+  },
+  line: {
+    flex:  1,
+    width: 2,
+    marginTop: 4,
+    marginBottom: 4,
+    borderRadius: 1,
+  },
+  content: {
+    flex:          1,
+    paddingTop:    2,
+  },
+  contentGap: {
+    paddingBottom: Space.lg,
+  },
+  topRow: {
+    flexDirection:  'row',
+    alignItems:     'flex-start',
+    justifyContent: 'space-between',
+    gap:            Space.sm,
+    marginBottom:   4,
+  },
+  action: {
+    flex:       1,
+    fontSize:   FontSize.sm,
+    fontWeight: FontWeight.bold,
+    color:      '#0f172a',
+    lineHeight: 19,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical:   3,
+    borderRadius:      Radius.full,
+    flexShrink:        0,
+    alignSelf:         'flex-start',
+  },
+  badgeText: {
+    fontSize:   FontSize.xs,
+    fontWeight: FontWeight.bold,
+  },
+  desc: {
+    fontSize:     FontSize.xs,
+    color:        '#64748b',
+    lineHeight:   17,
+    marginBottom: 5,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           Space.md,
+    marginTop:     2,
+  },
+  metaText: {
+    fontSize: FontSize.xs,
+    color:    '#94a3b8',
+  },
+});

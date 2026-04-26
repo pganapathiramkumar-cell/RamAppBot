@@ -1,28 +1,45 @@
 {
   "expo": {
-    "name": "RamBot",
-    "slug": "rambot",
+    "name": "RamVector",
+    "slug": "ramvector",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rambot",
+    "scheme": "ramvector",
     "userInterfaceStyle": "automatic",
     "extra": {
       "router": {
         "root": "./app"
       },
       "eas": {
-        "projectId": ""
+        "projectId": "c90f62a6-1fda-463d-8b10-de55e7464a0e"
       }
     },
     "ios": {
       "supportsTablet": true,
       "minimumOsVersion": "15.1",
-      "bundleIdentifier": "com.ramkumar.rambotapp"
+      "bundleIdentifier": "com.ramkumar.ramvectorapp",
+      "buildNumber": "3",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "RamVector needs access to your photo library to attach images.",
+        "NSCameraUsageDescription": "RamVector needs camera access to capture documents.",
+        "NSMicrophoneUsageDescription": "RamVector needs microphone access for voice input.",
+        "NSFaceIDUsageDescription": "RamVector uses Face ID for secure authentication.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
-      "package": "com.ramkumar.rambotapp",
-      "versionCode": 1,
+      "package": "com.ramkumar.ramvectorapp",
+      "versionCode": 3,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -30,7 +47,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": true
     },
     "web": {
       "output": "static",
@@ -38,7 +55,6 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-webview",
       [
         "expo-splash-screen",
         {
@@ -55,6 +71,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
-    }
+    },
+    "owner": "ganapathiram"
   }
 }

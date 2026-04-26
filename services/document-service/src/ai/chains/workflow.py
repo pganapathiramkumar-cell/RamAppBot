@@ -1,65 +1,100 @@
 """
-Workflow chain — generates a Mermaid flowchart directly from document content.
+Workflow chain — generates structured workflow steps from document content.
 
-Instead of inventing generic steps, the LLM reads the actual document and draws
-the process, sequence, or key structure that is already described there.
+Returns a list of step dicts with: step_number, action, priority,
+description, owner, deadline.
 """
 
 from __future__ import annotations
 
+import json
+import re
+
 from src.core.exceptions import ExtractionFailedError
 
-_FALLBACK_CHART = (
-    'graph TD\n'
-    '  A(["📄 Document Received"]) --> B(["📊 Analysis Complete"])\n'
-    '  style A fill:#e0e7ff,stroke:#6366f1,color:#3730a3\n'
-    '  style B fill:#d1fae5,stroke:#10b981,color:#065f46'
-)
+_FALLBACK_STEPS = [
+    {
+        "step_number": 1,
+        "action":      "Review Document",
+        "priority":    "Medium",
+        "description": "Read and understand the full document content.",
+        "owner":       None,
+        "deadline":    None,
+    },
+    {
+        "step_number": 2,
+        "action":      "Identify Key Actions",
+        "priority":    "High",
+        "description": "Extract tasks, dates, and responsibilities.",
+        "owner":       None,
+        "deadline":    None,
+    },
+    {
+        "step_number": 3,
+        "action":      "Complete Required Steps",
+        "priority":    "Medium",
+        "description": "Execute the identified actions in order.",
+        "owner":       None,
+        "deadline":    None,
+    },
+]
 
-_MERMAID_SYSTEM = """You are a document analyst and diagram expert.
+_SYSTEM = """You are a document analyst. Read the document carefully and extract a structured workflow of 3 to 6 concrete action steps that a person would need to follow based on the document's content.
 
-Read the document carefully and generate a Mermaid TD flowchart that shows the ACTUAL process, flow, or key sequence described in the document itself — not invented steps.
+Return ONLY a valid JSON array. No explanation, no markdown fences, no extra text.
 
-Rules:
-- Extract the real structure FROM the document (roles, phases, dates, decisions, milestones)
-- Use the document's real nouns in node labels: people, systems, forms, approvals, deliverables, or milestones
-- Avoid generic labels such as "Review Step", "Process Data", "Final Stage", or "Analysis Complete"
-- Each node label must be concise but specific — 4 to 8 words maximum
-- 4 to 7 nodes total
-- If the document contains a decision, branch, approval gate, or pass/fail condition, show it explicitly
-- Keep the flow faithful to the text; omit steps that are not clearly supported
-- Use graph TD (top-down)
-- Apply style lines to color nodes by importance:
-    Critical / high-priority  →  fill:#fee2e2,stroke:#ef4444,color:#991b1b
-    Normal / standard step    →  fill:#fef9c3,stroke:#eab308,color:#854d0e
-    Low / optional            →  fill:#dcfce7,stroke:#22c55e,color:#166534
-    Start / End nodes         →  fill:#e0e7ff,stroke:#6366f1,color:#3730a3
-- Return ONLY valid Mermaid syntax starting with "graph TD"
-- No markdown fences, no explanation text whatsoever
+Each step must have exactly these fields:
+- step_number: integer starting at 1
+- action: short imperative verb phrase (max 8 words), e.g. "Submit signed agreement to legal"
+- priority: one of "High", "Medium", or "Low"
+- description: one sentence explaining what this step involves (max 20 words)
+- owner: the role or person responsible, or null if not mentioned
+- deadline: the deadline or timeframe as a string, or null if not mentioned
 
-Example (for a recruitment document):
-graph TD
-  A(["📋 Job Requisition"]) --> B["Screen Applications"]
-  B --> C["Technical Interview"]
-  C --> D{"Background Check"}
-  D -->|Pass| E["Issue Offer Letter"]
-  D -->|Fail| B
-  E --> F(["✅ Onboarding"])
-  style A fill:#e0e7ff,stroke:#6366f1,color:#3730a3
-  style C fill:#fee2e2,stroke:#ef4444,color:#991b1b
-  style E fill:#fee2e2,stroke:#ef4444,color:#991b1b
-  style F fill:#e0e7ff,stroke:#6366f1,color:#3730a3"""
+Use real names, roles, dates and systems from the document. Do not invent generic steps.
+
+Example output:
+[
+  {"step_number": 1, "action": "Review contract terms", "priority": "High", "description": "Legal team checks all clauses before signing.", "owner": "Legal Team", "deadline": "Jan 15"},
+  {"step_number": 2, "action": "Obtain stakeholder approval", "priority": "High", "description": "Get sign-off from all department heads.", "owner": "Project Manager", "deadline": null},
+  {"step_number": 3, "action": "File with compliance team", "priority": "Medium", "description": "Submit approved document to regulatory body.", "owner": "Compliance", "deadline": "Jan 30"}
+]"""
 
 
-def _strip_fences(raw: str) -> str:
+def _parse_steps(raw: str) -> list[dict]:
+    """Extract JSON array from LLM response, clean it up."""
     raw = raw.strip()
-    if raw.startswith("```"):
-        parts = raw.split("```")
-        raw = parts[1] if len(parts) > 1 else raw
-        if raw.startswith("mermaid"):
-            raw = raw[len("mermaid"):]
-        raw = raw.strip()
-    return raw
+    # Strip markdown fences if present
+    raw = re.sub(r"^```(?:json)?\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+    raw = raw.strip()
+
+    # Find the JSON array
+    start = raw.find("[")
+    end   = raw.rfind("]")
+    if start == -1 or end == -1:
+        return []
+
+    try:
+        steps = json.loads(raw[start : end + 1])
+        if not isinstance(steps, list):
+            return []
+
+        validated = []
+        for i, s in enumerate(steps):
+            if not isinstance(s, dict):
+                continue
+            validated.append({
+                "step_number": int(s.get("step_number", i + 1)),
+                "action":      str(s.get("action", "Step")).strip(),
+                "priority":    s.get("priority", "Medium") if s.get("priority") in ("High", "Medium", "Low") else "Medium",
+                "description": str(s["description"]).strip() if s.get("description") else None,
+                "owner":       str(s["owner"]).strip() if s.get("owner") else None,
+                "deadline":    str(s["deadline"]).strip() if s.get("deadline") else None,
+            })
+        return validated
+    except (json.JSONDecodeError, ValueError):
+        return []
 
 
 class WorkflowGenerationChain:
@@ -70,19 +105,17 @@ class WorkflowGenerationChain:
         self._llm = llm
         self.max_retries = max_retries
 
-    async def run(self, text: str) -> str:
+    async def run(self, text: str) -> list[dict]:
         """
-        Generate a Mermaid flowchart from document text.
-        Returns a Mermaid syntax string (graph TD ...).
+        Generate structured workflow steps from document text.
+        Returns a list of step dicts.
         """
         for attempt in range(1, self.max_retries + 1):
-            resp = await self._llm.ainvoke(text, system=_MERMAID_SYSTEM)
-            raw = _strip_fences(resp.content)
-
-            if raw.startswith("graph "):
-                return raw
-
+            resp  = await self._llm.ainvoke(text, system=_SYSTEM)
+            steps = _parse_steps(resp.content)
+            if steps:
+                return steps
             if attempt == self.max_retries:
-                return _FALLBACK_CHART
+                return _FALLBACK_STEPS
 
-        return _FALLBACK_CHART
+        return _FALLBACK_STEPS
