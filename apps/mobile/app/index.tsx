@@ -19,6 +19,21 @@ interface Entities {
   names: string[]; dates: string[]; clauses: string[];
   tasks: string[]; risks: string[];
 }
+interface DocumentSnapshot {
+  primary_topic:    string;
+  word_count:       number;
+  secondary_topics: string[];
+  key_concepts:     string[];
+  key_ideas:        string[];
+  important_entities: {
+    tools:         string[];
+    systems:       string[];
+    metrics:       string[];
+    people:        string[];
+    organizations: string[];
+  };
+  relationships: string[];
+}
 interface WorkflowStep {
   step_number: number;
   action:      string;
@@ -29,8 +44,10 @@ interface WorkflowStep {
 }
 interface Analysis {
   document_id: string; status: string;
-  summary: string; entities: Entities;
-  workflow: WorkflowStep[];
+  summary:     string;
+  snapshot?:   DocumentSnapshot;
+  entities:    Entities;
+  workflow:    WorkflowStep[];
 }
 
 const PRIORITY_CONFIG = {
@@ -71,24 +88,144 @@ function RamVectorLogo() {
   );
 }
 
-/* ── Summary tab ──────────────────────────────────────────────── */
-function SummaryTab({ summary }: { summary: string }) {
+/* ── Summary tab — rich snapshot + text ──────────────────────── */
+function SummaryTab({ summary, snapshot }: { summary: string; snapshot?: DocumentSnapshot }) {
   const paras = summary?.split(/\n\n+/).map((p) => p.trim()).filter(Boolean) ?? [];
+
+  const entityGroups = snapshot ? [
+    { label: 'People',        values: snapshot.important_entities.people        },
+    { label: 'Organizations', values: snapshot.important_entities.organizations },
+    { label: 'Tools',         values: snapshot.important_entities.tools         },
+    { label: 'Systems',       values: snapshot.important_entities.systems       },
+    { label: 'Metrics',       values: snapshot.important_entities.metrics       },
+  ].filter((g) => g.values?.length > 0) : [];
+
   return (
-    <View style={card.wrap}>
-      <View style={card.headerRow}>
-        <View style={[card.iconBox, { backgroundColor: `${Brand.steer}15` }]}>
-          <Text style={card.icon}>📝</Text>
+    <View style={{ gap: Space.sm }}>
+
+      {/* ── Snapshot metrics ── */}
+      {snapshot && (
+        <View style={card.wrap}>
+          <View style={card.headerRow}>
+            <View style={[card.iconBox, { backgroundColor: `${Brand.steer}15` }]}>
+              <Text style={card.icon}>📝</Text>
+            </View>
+            <View>
+              <Text style={card.title}>Executive Summary</Text>
+              <Text style={card.meta}>AI-generated overview</Text>
+            </View>
+          </View>
+
+          {/* Metric chips row */}
+          <View style={snap.metricRow}>
+            {snapshot.primary_topic ? (
+              <View style={snap.metricCard}>
+                <Text style={snap.metricLabel}>Primary Topic</Text>
+                <Text style={snap.metricValue} numberOfLines={2}>{snapshot.primary_topic}</Text>
+              </View>
+            ) : null}
+            {snapshot.word_count ? (
+              <View style={snap.metricCard}>
+                <Text style={snap.metricLabel}>Word Count</Text>
+                <Text style={snap.metricValue}>{snapshot.word_count.toLocaleString()}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Secondary topics */}
+          {snapshot.secondary_topics?.length > 0 && (
+            <View style={snap.section}>
+              <Text style={snap.sectionLabel}>SECONDARY TOPICS</Text>
+              <View style={snap.tagRow}>
+                {snapshot.secondary_topics.slice(0, 8).map((t) => (
+                  <View key={t} style={[snap.tag, { backgroundColor: `${Brand.steer}10`, borderColor: `${Brand.steer}25` }]}>
+                    <Text style={[snap.tagText, { color: Brand.steer }]}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Key concepts */}
+          {snapshot.key_concepts?.length > 0 && (
+            <View style={snap.section}>
+              <Text style={snap.sectionLabel}>KEY CONCEPTS</Text>
+              <View style={snap.tagRow}>
+                {snapshot.key_concepts.slice(0, 8).map((c) => (
+                  <View key={c} style={[snap.tag, { backgroundColor: `${Brand.docuMind}10`, borderColor: `${Brand.docuMind}25` }]}>
+                    <Text style={[snap.tagText, { color: Brand.docuMind }]}>{c}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
-        <View>
-          <Text style={card.title}>Executive Summary</Text>
-          <Text style={card.meta}>AI-generated overview</Text>
+      )}
+
+      {/* ── Key ideas ── */}
+      {snapshot?.key_ideas?.length > 0 && (
+        <View style={card.wrap}>
+          <Text style={snap.sectionLabel}>KEY IDEAS</Text>
+          {snapshot.key_ideas.slice(0, 6).map((idea, i) => (
+            <View key={i} style={snap.ideaRow}>
+              <View style={snap.ideaDot} />
+              <Text style={snap.ideaText}>{idea}</Text>
+            </View>
+          ))}
         </View>
+      )}
+
+      {/* ── Important entities ── */}
+      {entityGroups.length > 0 && (
+        <View style={card.wrap}>
+          <Text style={snap.sectionLabel}>IMPORTANT ENTITIES</Text>
+          {entityGroups.map((group) => (
+            <View key={group.label} style={snap.entityGroup}>
+              <Text style={snap.entityGroupLabel}>{group.label}</Text>
+              <View style={snap.tagRow}>
+                {group.values.slice(0, 5).map((v) => (
+                  <View key={v} style={[snap.tag, { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }]}>
+                    <Text style={[snap.tagText, { color: '#334155' }]}>{v}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Relationships ── */}
+      {snapshot?.relationships?.length > 0 && (
+        <View style={card.wrap}>
+          <Text style={snap.sectionLabel}>RELATIONSHIPS</Text>
+          {snapshot.relationships.slice(0, 4).map((r, i) => (
+            <View key={i} style={snap.ideaRow}>
+              <View style={[snap.ideaDot, { backgroundColor: Brand.skill }]} />
+              <Text style={snap.ideaText}>{r}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Summary paragraphs ── */}
+      <View style={card.wrap}>
+        {!snapshot && (
+          <View style={[card.headerRow, { marginBottom: Space.md }]}>
+            <View style={[card.iconBox, { backgroundColor: `${Brand.steer}15` }]}>
+              <Text style={card.icon}>📝</Text>
+            </View>
+            <View>
+              <Text style={card.title}>Executive Summary</Text>
+              <Text style={card.meta}>AI-generated overview</Text>
+            </View>
+          </View>
+        )}
+        {paras.length > 0
+          ? paras.map((p, i) => <Text key={i} style={card.body}>{p}</Text>)
+          : <Text style={card.empty}>No summary available.</Text>
+        }
       </View>
-      {paras.length > 0
-        ? paras.map((p, i) => <Text key={i} style={card.body}>{p}</Text>)
-        : <Text style={card.empty}>No summary available.</Text>
-      }
+
     </View>
   );
 }
@@ -454,7 +591,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Tab content */}
-            {activeTab === 'summary'  && <SummaryTab  summary={analysis.summary}        />}
+            {activeTab === 'summary'  && <SummaryTab  summary={analysis.summary} snapshot={analysis.snapshot} />}
             {activeTab === 'actions'  && <ActionsTab  entities={analysis.entities}      />}
             {activeTab === 'workflow' && <WorkflowTab steps={analysis.workflow}          />}
           </View>
@@ -1041,5 +1178,91 @@ const flow = StyleSheet.create({
   metaText: {
     fontSize: FontSize.xs,
     color:    '#94a3b8',
+  },
+});
+
+/* ── Snapshot styles ───────────────────────────────────────────── */
+const snap = StyleSheet.create({
+  metricRow: {
+    flexDirection: 'row',
+    gap:           Space.sm,
+    marginBottom:  Space.md,
+  },
+  metricCard: {
+    flex:            1,
+    backgroundColor: '#f8fafc',
+    borderRadius:    Radius.md,
+    borderWidth:     1,
+    borderColor:     '#e2e8f0',
+    padding:         Space.sm,
+  },
+  metricLabel: {
+    fontSize:     FontSize.xs,
+    fontWeight:   FontWeight.bold,
+    color:        '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom:  3,
+  },
+  metricValue: {
+    fontSize:   FontSize.sm,
+    fontWeight: FontWeight.bold,
+    color:      '#0f172a',
+    lineHeight: 18,
+  },
+
+  section:      { marginBottom: Space.md },
+  sectionLabel: {
+    fontSize:      FontSize.xs,
+    fontWeight:    FontWeight.bold,
+    color:         '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom:  Space.sm,
+  },
+
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           6,
+  },
+  tag: {
+    borderRadius:      Radius.full,
+    borderWidth:       1,
+    paddingHorizontal: 10,
+    paddingVertical:   4,
+  },
+  tagText: {
+    fontSize:   FontSize.xs,
+    fontWeight: FontWeight.semibold,
+  },
+
+  ideaRow: {
+    flexDirection:  'row',
+    alignItems:     'flex-start',
+    gap:            Space.sm,
+    marginBottom:   Space.sm,
+  },
+  ideaDot: {
+    width:        7,
+    height:       7,
+    borderRadius: 4,
+    backgroundColor: Brand.steer,
+    marginTop:    5,
+    flexShrink:   0,
+  },
+  ideaText: {
+    flex:       1,
+    fontSize:   FontSize.sm,
+    color:      '#475569',
+    lineHeight: 20,
+  },
+
+  entityGroup:      { marginBottom: Space.md },
+  entityGroupLabel: {
+    fontSize:   FontSize.xs,
+    fontWeight: FontWeight.bold,
+    color:      '#475569',
+    marginBottom: 5,
   },
 });
