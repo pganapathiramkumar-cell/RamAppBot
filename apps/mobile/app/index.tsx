@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   ScrollView, Alert, Platform, Animated, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   Brand, Category, Semantic, Shadows,
@@ -332,6 +333,7 @@ function WorkflowTab({ steps }: { steps: WorkflowStep[] }) {
 
 /* ── Main screen ──────────────────────────────────────────────── */
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [phase,     setPhase]     = useState<Phase>('idle');
   const [docId,     setDocId]     = useState<string | null>(null);
   const [analysis,  setAnalysis]  = useState<Analysis | null>(null);
@@ -453,7 +455,7 @@ export default function HomeScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0f1a2e" />
 
       {/* ── Header bar ── */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 10 }]}>
         <View style={s.headerLeft}>
           <View style={s.headerLogoMark}>
             <Text style={s.headerLogoText}>RV</Text>
@@ -467,7 +469,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + Space['4xl'] }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── IDLE: hero + upload ── */}
@@ -680,10 +682,9 @@ const logo = StyleSheet.create({
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f8fafc' },
 
-  /* Header */
+  /* Header — paddingTop applied inline via useSafeAreaInsets */
   header: {
     backgroundColor: '#0f1a2e',
-    paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight ?? 24) + 8,
     paddingBottom: 14,
     paddingHorizontal: Space.xl,
     flexDirection: 'row',

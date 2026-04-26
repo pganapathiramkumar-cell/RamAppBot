@@ -21,23 +21,14 @@
       "bundleIdentifier": "com.ramkumar.ramvectorapp",
       "buildNumber": "3",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "RamVector needs access to your photo library to attach images.",
-        "NSCameraUsageDescription": "RamVector needs camera access to capture documents.",
-        "NSMicrophoneUsageDescription": "RamVector needs microphone access for voice input.",
-        "NSFaceIDUsageDescription": "RamVector uses Face ID for secure authentication.",
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.ramkumar.ramvectorapp",
       "versionCode": 3,
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.CAMERA",
         "android.permission.VIBRATE"
       ],
       "adaptiveIcon": {
