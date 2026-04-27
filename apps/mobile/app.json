@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ramvector",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "extra": {
       "router": {
         "root": "./app"
@@ -16,16 +16,23 @@
       }
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.ramkumar.ramvectorapp",
-      "buildNumber": "7",
+      "buildNumber": "8",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": []
+      },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "RamVector does not access your photo library.",
+        "CFBundleLocalizations": ["en"],
+        "UIRequiresFullScreen": true
       }
     },
     "android": {
       "package": "com.ramkumar.ramvectorapp",
-      "versionCode": 7,
+      "versionCode": 8,
+      "minSdkVersion": 24,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.VIBRATE"
@@ -51,10 +58,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#ffffff"
         }
       ]
     ],
