@@ -18,14 +18,16 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ramkumar.ramvectorapp",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": []
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "RamVector does not access your photo library.",
-        "CFBundleLocalizations": ["en"],
+        "CFBundleLocalizations": [
+          "en"
+        ],
         "UIRequiresFullScreen": true
       }
     },
