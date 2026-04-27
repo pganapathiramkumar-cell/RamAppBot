@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RamVector",
-    "slug": "ramvector",
+    "slug": "rambot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -17,16 +17,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "minimumOsVersion": "15.1",
       "bundleIdentifier": "com.ramkumar.ramvectorapp",
-      "buildNumber": "3",
+      "buildNumber": "7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.ramkumar.ramvectorapp",
-      "versionCode": 3,
+      "versionCode": 7,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.VIBRATE"

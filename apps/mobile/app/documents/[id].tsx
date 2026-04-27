@@ -4,12 +4,23 @@ import {
   ActivityIndicator, Platform, StatusBar,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Brand, Semantic, Shadows,
   FontSize, FontWeight, Radius, Space,
 } from '@/constants/theme';
 
-const API = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const API = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'https://ramappbot.onrender.com/api/v1';
+
+function getFriendlyErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (/network request failed/i.test(error.message) || /could not reach/i.test(error.message)) {
+      return 'We could not connect to the document service. Please try again.';
+    }
+    return error.message;
+  }
+  return 'Something went wrong while loading this analysis.';
+}
 
 type AnalysisStatus = 'pending' | 'processing' | 'done' | 'failed';
 type Tab = 'summary' | 'actions' | 'workflow';
@@ -132,15 +143,23 @@ function WorkflowTab({ steps }: { steps: WorkflowStep[] }) {
 
 export default function AnalysisDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [analysis,  setAnalysis]  = useState<Analysis | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const [error,     setError]     = useState<string | null>(null);
 
   const fetchAnalysis = useCallback(async () => {
     if (!id) return;
     try {
       const res = await fetch(`${API}/analyses/${id}`);
-      if (res.ok) setAnalysis(await res.json());
+      if (!res.ok) {
+        throw new Error(`Could not load analysis (${res.status}).`);
+      }
+      setAnalysis(await res.json());
+      setError(null);
+    } catch (e: unknown) {
+      setError(getFriendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -155,12 +174,20 @@ export default function AnalysisDetailScreen() {
   }, [analysis?.status, fetchAnalysis]);
 
   async function retryAnalysis() {
-    await fetch(`${API}/analyses/${id}/retry`, { method: 'POST' });
-    setAnalysis((prev) => prev ? { ...prev, status: 'pending' } : prev);
+    try {
+      const res = await fetch(`${API}/analyses/${id}/retry`, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error(`Could not restart analysis (${res.status}).`);
+      }
+      setError(null);
+      setAnalysis((prev) => prev ? { ...prev, status: 'pending' } : prev);
+    } catch (e: unknown) {
+      setError(getFriendlyErrorMessage(e));
+    }
   }
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { paddingTop: insets.top + Space.lg }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={s.header}>
@@ -177,6 +204,15 @@ export default function AnalysisDetailScreen() {
         <ActivityIndicator style={{ marginTop: 60 }} color={Brand.steer} />
       )}
 
+      {!loading && error && !analysis && (
+        <View style={s.errorBox}>
+          <Text style={s.errorText}>{error}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={fetchAnalysis}>
+            <Text style={s.retryBtnText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {analysis && (analysis.status === 'pending' || analysis.status === 'processing') && (
         <View style={s.stateBox}>
           <ActivityIndicator size="large" color={Brand.steer} />
@@ -187,7 +223,7 @@ export default function AnalysisDetailScreen() {
 
       {analysis?.status === 'failed' && (
         <View style={s.errorBox}>
-          <Text style={s.errorText}>Analysis failed. Please try again.</Text>
+          <Text style={s.errorText}>{error || 'Analysis failed. Please try again.'}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={retryAnalysis}>
             <Text style={s.retryBtnText}>Retry</Text>
           </TouchableOpacity>
@@ -216,7 +252,10 @@ export default function AnalysisDetailScreen() {
             ))}
           </ScrollView>
 
-          <ScrollView style={s.content} contentContainerStyle={s.contentInner}>
+          <ScrollView
+            style={s.content}
+            contentContainerStyle={[s.contentInner, { paddingBottom: insets.bottom + Space['4xl'] }]}
+          >
             {activeTab === 'summary'  && <SummaryTab  summary={analysis.summary}     />}
             {activeTab === 'actions'  && <ActionsTab  entities={analysis.entities}   />}
             {activeTab === 'workflow' && <WorkflowTab steps={analysis.workflow}       />}
@@ -231,7 +270,6 @@ const s = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    paddingTop: Platform.OS === 'ios' ? 60 : 24,
   },
   header: {
     paddingHorizontal: Space.xl,

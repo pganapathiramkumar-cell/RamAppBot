@@ -20,12 +20,18 @@
     "services:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
     "services:down": "docker-compose -f infrastructure/docker/docker-compose.yml down"
   },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
   "devDependencies": {
     "turbo": "^2.0.0",
     "typescript": "^5.4.0",
-    "@types/node": "^20.0.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "@types/node": "^20.0.0"
   },
   "engines": {
     "node": ">=20.0.0",

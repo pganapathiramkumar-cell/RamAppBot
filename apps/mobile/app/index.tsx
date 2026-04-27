@@ -10,8 +10,21 @@ import {
   FontSize, FontWeight, Radius, Space,
 } from '@/constants/theme';
 
-const API      = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const API      = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'https://ramappbot.onrender.com/api/v1';
 const MAX_SIZE = 5 * 1024 * 1024;
+
+function getFriendlyErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (error.name === 'AbortError') {
+      return 'The request took too long. Please try again in a moment.';
+    }
+    if (/network request failed/i.test(error.message) || /could not reach/i.test(error.message)) {
+      return 'We could not connect to the document service. Check your connection and try again.';
+    }
+    return error.message;
+  }
+  return 'Something went wrong while contacting the document service. Please try again.';
+}
 
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'failed';
 type Tab   = 'summary' | 'actions' | 'workflow';
@@ -431,11 +444,7 @@ export default function HomeScreen() {
       setPhase('processing');
     } catch (e: unknown) {
       clearTimeout(uploadTimer);
-      if (e instanceof Error && e.name === 'AbortError') {
-        setError('Upload timed out. Make sure the server is running and your device is on the same network.');
-      } else {
-        setError(e instanceof Error ? e.message : 'Could not reach the document service.');
-      }
+      setError(getFriendlyErrorMessage(e));
       setPhase('failed');
     }
   }
@@ -461,10 +470,6 @@ export default function HomeScreen() {
             <Text style={s.headerLogoText}>RV</Text>
           </View>
           <Text style={s.headerBrand}>RamVector</Text>
-        </View>
-        <View style={s.livePill}>
-          <View style={s.liveDot} />
-          <Text style={s.liveText}>Live</Text>
         </View>
       </View>
 
@@ -614,7 +619,7 @@ export default function HomeScreen() {
           <View style={s.errorCard}>
             <View style={s.errorIconWrap}><Text style={s.errorIconText}>⚠️</Text></View>
             <Text style={s.errorTitle}>Something went wrong</Text>
-            <Text style={s.errorMsg}>{error}</Text>
+            <Text style={s.errorMsg}>{error || 'Something went wrong while processing your document.'}</Text>
             <TouchableOpacity style={s.retryBtn} onPress={reset} activeOpacity={0.85}>
               <Text style={s.retryText}>Try Again</Text>
             </TouchableOpacity>
@@ -712,29 +717,6 @@ const s = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: -0.3,
   },
-  livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.25)',
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10b981',
-  },
-  liveText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.bold,
-    color: '#10b981',
-  },
-
   scroll: {
     paddingHorizontal: Space.xl,
     paddingTop: Space['2xl'],
