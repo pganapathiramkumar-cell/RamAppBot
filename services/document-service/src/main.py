@@ -22,7 +22,7 @@ from src.core.security import decode_token
 from src.services.analysis_svc import AnalysisService, extract_text_from_pdf, run_ai_pipeline
 from src.services.document_svc import DocumentService
 from src.services.file_validator import validate_pdf
-from src.infrastructure.storage.memory_store import table_update, blob_get
+from src.infrastructure.storage.memory_store import table_update, blob_get, blob_delete, purge_old_records
 
 
 @asynccontextmanager
@@ -83,35 +83,44 @@ CurrentUser = Annotated[dict, Depends(get_current_user)]
 
 async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
     """
-    Background task: extract text from stored PDF → run AI chains → save results.
-    Runs after the upload response has already been sent to the client.
+    Background task: extract text → run AI chains → save results → clean up memory.
+    PDF bytes and embeddings are deleted immediately after analysis to free RAM.
     """
     try:
-        # Mark as processing
         table_update("documents", {"status": "processing"}, {"id": document_id})
 
-        # Extract text from stored PDF bytes
         pdf_bytes = blob_get(storage_path)
         if not pdf_bytes:
             raise ValueError("PDF bytes not found in store")
 
         text = await extract_text_from_pdf(pdf_bytes)
+
+        # Free PDF bytes from RAM immediately — no longer needed
+        blob_delete(storage_path)
+
         if not text.strip():
-            # Scanned / image-only PDF — return a helpful message instead of failing
             text = "This PDF appears to be a scanned image or contains no extractable text. Please upload a text-based PDF."
 
-        # Run all 3 AI chains
         result = await run_ai_pipeline(document_id=document_id, text=text)
 
-        # Persist analysis
         svc = AnalysisService()
         await svc.save_analysis(document_id, result)
 
-        # Mark as done
         table_update("documents", {"status": "done"}, {"id": document_id})
+
+        # Free ChromaDB embeddings — retrieval is done, no further use
+        try:
+            from src.ai.embeddings import get_embedding_service
+            get_embedding_service().delete_document(document_id)
+        except Exception:
+            pass
+
+        # Purge any records older than 1 hour to cap long-running memory growth
+        purge_old_records(max_age_seconds=3600)
 
     except Exception as exc:
         print(f"[Pipeline] FAILED for {document_id}: {exc}")
+        blob_delete(storage_path)   # always free the blob even on failure
         table_update("documents", {"status": "failed"}, {"id": document_id})
 
 

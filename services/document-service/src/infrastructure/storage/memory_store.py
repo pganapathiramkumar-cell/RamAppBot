@@ -69,3 +69,27 @@ def blob_put(path: str, data: bytes) -> None:
 def blob_get(path: str) -> bytes | None:
     with _lock:
         return _blobs.get(path)
+
+
+def blob_delete(path: str) -> None:
+    with _lock:
+        _blobs.pop(path, None)
+
+
+def purge_old_records(max_age_seconds: int = 3600) -> None:
+    """Delete documents + analyses older than max_age_seconds to cap memory usage."""
+    from datetime import datetime, timezone
+    cutoff = datetime.now(timezone.utc).timestamp() - max_age_seconds
+    with _lock:
+        stale_ids = [
+            rid for rid, row in _tables.get("documents", {}).items()
+            if datetime.fromisoformat(row.get("created_at", "1970-01-01T00:00:00+00:00")).timestamp() < cutoff
+        ]
+        for rid in stale_ids:
+            doc = _tables["documents"].pop(rid, {})
+            _blobs.pop(doc.get("storage_path", ""), None)
+        doc_ids = {rid for rid in stale_ids}
+        _tables["analyses"] = {
+            rid: row for rid, row in _tables.get("analyses", {}).items()
+            if row.get("document_id") not in doc_ids
+        }
