@@ -1,6 +1,12 @@
 """
 Embedding service — sentence-transformers + ChromaDB.
-Imported lazily so the app starts even if the packages are not installed.
+
+Retrieval pipeline:
+  upsert_chunks()        → embed + store all chunks
+  retrieve_and_rerank()  → Top-K vector search → BM25 rescore → RRF fusion → Top-N
+
+RRF (Reciprocal Rank Fusion) combines vector similarity rank and BM25 keyword
+rank into a single score without needing a separate neural reranker model.
 """
 
 from __future__ import annotations
@@ -20,8 +26,16 @@ except ImportError:
         "Embedding will be skipped. Run: pip install sentence-transformers chromadb"
     )
 
+try:
+    from rank_bm25 import BM25Okapi
+    _BM25_AVAILABLE = True
+except ImportError:
+    _BM25_AVAILABLE = False
+    logger.warning("rank_bm25 not installed — BM25 reranking disabled. Run: pip install rank_bm25")
+
 
 _MODEL_NAME = "all-MiniLM-L6-v2"
+_RRF_K      = 60   # RRF constant — higher = less aggressive rank difference
 
 
 class EmbeddingService:
@@ -84,13 +98,71 @@ class EmbeddingService:
         """Retrieve top-N semantically relevant chunks for a document."""
         if not self._available:
             return []
-        query_embedding = self.embed(query_text)
-        results = self._collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            where={"document_id": document_id},
-        )
-        return results["documents"][0] if results["documents"] else []
+        try:
+            # Guard: ChromaDB errors if n_results > stored count
+            count = self._collection.count()
+            safe_n = max(1, min(n_results, count))
+            query_embedding = self.embed(query_text)
+            results = self._collection.query(
+                query_embeddings=[query_embedding],
+                n_results=safe_n,
+                where={"document_id": document_id},
+            )
+            return results["documents"][0] if results["documents"] else []
+        except Exception as exc:
+            logger.warning("ChromaDB query failed: %s", exc)
+            return []
+
+    # ── Retrieve + Rerank ──────────────────────────────────────────────────
+
+    def retrieve_and_rerank(
+        self,
+        document_id: str,
+        query: str,
+        top_k: int = 10,
+        top_n: int = 3,
+    ) -> list[str]:
+        """
+        Full retrieval pipeline for one query:
+          1. Vector search  → top_k candidates (ChromaDB cosine similarity)
+          2. BM25 rescore   → keyword relevance score per candidate
+          3. RRF fusion     → combine vector rank + BM25 rank
+          4. Return top_n   → best chunks for the LLM
+
+        Falls back to plain vector search if BM25 unavailable.
+        """
+        if not self._available:
+            return []
+
+        candidates = self.query(document_id, query, n_results=top_k)
+        if not candidates:
+            return []
+        if len(candidates) <= top_n:
+            return candidates
+
+        if not _BM25_AVAILABLE:
+            # No BM25 — return top_n from vector search directly
+            return candidates[:top_n]
+
+        # BM25 score — tokenise candidates and query
+        tokenised = [doc.lower().split() for doc in candidates]
+        bm25 = BM25Okapi(tokenised)
+        bm25_scores = bm25.get_scores(query.lower().split())
+
+        # BM25 rank order (highest score = rank 1)
+        bm25_order = sorted(range(len(candidates)), key=lambda i: bm25_scores[i], reverse=True)
+        bm25_rank  = {idx: rank + 1 for rank, idx in enumerate(bm25_order)}
+
+        # Vector rank is simply the ChromaDB return order (index 0 = most similar)
+        vector_rank = {i: i + 1 for i in range(len(candidates))}
+
+        # RRF fusion score — higher is better
+        rrf = {
+            i: 1 / (_RRF_K + vector_rank[i]) + 1 / (_RRF_K + bm25_rank[i])
+            for i in range(len(candidates))
+        }
+        ranked = sorted(rrf, key=lambda i: rrf[i], reverse=True)
+        return [candidates[i] for i in ranked[:top_n]]
 
     # ── Delete ─────────────────────────────────────────────────────────────
 

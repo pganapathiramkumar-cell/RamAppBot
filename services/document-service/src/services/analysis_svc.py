@@ -20,13 +20,30 @@ async def run_ai_pipeline(document_id: str, text: str) -> dict:
 
 async def extract_text_from_pdf(file_bytes: bytes) -> str:
     """
-    Extract all text from a PDF using pypdf.
-    Returns empty string on any pypdf error so the caller can apply a fallback.
+    Extract text from a PDF using PyMuPDF (fitz).
+    Handles complex layouts, multi-column, tables, and embedded fonts.
+    Falls back to pypdf if PyMuPDF is unavailable.
     """
     import io
+    # PyMuPDF — preserves reading order, handles complex layouts
+    try:
+        import fitz  # pymupdf
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        pages = []
+        for page in doc:
+            # "text" mode with preserve_whitespace=False for clean output
+            text = page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_MEDIABOX_CLIP)
+            if text.strip():
+                pages.append(text.strip())
+        doc.close()
+        if pages:
+            return "\n\n".join(pages)
+    except Exception:
+        pass
+
+    # Fallback to pypdf for compatibility
     try:
         from pypdf import PdfReader
-        from pypdf.errors import PdfReadError
         reader = PdfReader(io.BytesIO(file_bytes), strict=False)
         pages = [page.extract_text() or "" for page in reader.pages]
         return "\n\n".join(p.strip() for p in pages if p.strip())
