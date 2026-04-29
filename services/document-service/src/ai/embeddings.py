@@ -34,8 +34,9 @@ except ImportError:
     logger.warning("rank_bm25 not installed — BM25 reranking disabled. Run: pip install rank_bm25")
 
 
-_MODEL_NAME = "all-MiniLM-L6-v2"
-_RRF_K      = 60
+_MODEL_NAME    = "all-MiniLM-L6-v2"
+_EMBEDDING_DIM = 384   # all-MiniLM-L6-v2 output dimension — used by tests
+_RRF_K         = 60
 
 # ── Singleton ──────────────────────────────────────────────────────────────────
 # Model loading takes 15-30s on Render free tier. We load it ONCE at module

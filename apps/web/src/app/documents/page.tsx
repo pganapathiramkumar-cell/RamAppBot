@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { useRef, useState, useEffect, DragEvent, ChangeEvent, useCallback } from 'react';
 import Link from 'next/link';
 import { MermaidChart } from '../../features/document/components/MermaidChart';
@@ -237,14 +239,12 @@ export default function RamVectorPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, order: isMobile ? 2 : 3 }}>
             {!isMobile && (
-              <a
+              <Link
                 href="/privacy"
-                style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
+                style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}
               >
                 Privacy
-              </a>
+              </Link>
             )}
           </div>
         </div>

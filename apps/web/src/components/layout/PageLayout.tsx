@@ -53,12 +53,12 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
           </nav>
 
           <div className="order-2 sm:order-3 flex items-center gap-3 flex-shrink-0">
-            <a
+            <Link
               href="/privacy"
               className="hidden sm:block text-xs text-white/40 hover:text-white/70 transition-colors"
             >
               Privacy
-            </a>
+            </Link>
           </div>
         </div>
       </header>
