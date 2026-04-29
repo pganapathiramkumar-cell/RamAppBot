@@ -28,8 +28,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm' }
       - run: npm ci
-      - run: npx eslint apps/web/src --ext .ts,.tsx
-        working-directory: ${{ github.workspace }}
+      - run: npm run lint --workspace=apps/web
 
   build-web:
     name: Build Web App
