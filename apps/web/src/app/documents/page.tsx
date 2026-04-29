@@ -947,13 +947,6 @@ function SnapshotTagGroup({ title, tags }: { title: string; tags: string[] }) {
 }
 
 const DOT_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
-const SECTIONS = [
-  { key: 'tasks' as const, label: 'Tasks' },
-  { key: 'dates' as const, label: 'Dates' },
-  { key: 'risks' as const, label: 'Risks' },
-  { key: 'names' as const, label: 'Names' },
-  { key: 'clauses' as const, label: 'Clauses' },
-];
 
 function ActionContent({ entities }: { entities?: Analysis['entities'] }) {
   if (!entities) return <p style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No action points extracted.</p>;
