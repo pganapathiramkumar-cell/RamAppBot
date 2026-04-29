@@ -49,10 +49,12 @@ class TestAnalysisAPI:
             assert "priority" in step
 
     @pytest.mark.asyncio
-    async def test_api_an_002_processing_status_returns_202(
+    async def test_api_an_002_processing_status_returns_200(
         self, raw_client, auth_headers
     ):
-        """GET /analyses/{id} when status=processing returns 202 with status field."""
+        """GET /analyses/{id} when status=processing returns 200 with status field.
+        The API uses 200+body (not 202) so the mobile poller always gets a parseable
+        response regardless of state."""
         mock_svc = AsyncMock()
         mock_svc.get_analysis.side_effect = AnalysisNotReadyError("doc-123", "processing")
 
@@ -62,15 +64,16 @@ class TestAnalysisAPI:
                 headers=auth_headers,
             )
 
-        assert response.status_code == 202
-        assert response.json()["detail"]["code"] == "PROCESSING"
-        assert response.json()["detail"]["status"] == "processing"
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "processing"
+        assert body["document_id"] == "doc-123"
 
     @pytest.mark.asyncio
-    async def test_api_an_002_pending_status_returns_202(
+    async def test_api_an_002_pending_status_returns_200(
         self, raw_client, auth_headers
     ):
-        """status=pending also returns 202 (not yet started)."""
+        """status=pending also returns 200 with status field (not yet started)."""
         mock_svc = AsyncMock()
         mock_svc.get_analysis.side_effect = AnalysisNotReadyError("doc-123", "pending")
 
@@ -79,7 +82,9 @@ class TestAnalysisAPI:
                 "/api/v1/analyses/doc-123",
                 headers=auth_headers,
             )
-        assert response.status_code == 202
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "pending"
 
     @pytest.mark.asyncio
     async def test_api_an_003_retry_resets_failed_analysis(

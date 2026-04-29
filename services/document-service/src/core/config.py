@@ -1,5 +1,6 @@
 """Service configuration via environment variables."""
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -50,8 +51,7 @@ class Settings(BaseSettings):
     MAX_UPLOADS_PER_HOUR: int = 10
     MAX_REQUESTS_PER_MINUTE: int = 100
 
-    class Config:
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
 
 settings = Settings()
