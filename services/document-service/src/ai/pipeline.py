@@ -92,12 +92,12 @@ def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
     Top-K vector search + BM25 rerank + RRF fusion.
     Falls back to positional select_chunks() if embeddings unavailable.
     """
-    from src.ai.embeddings import EmbeddingService
+    from src.ai.embeddings import get_embedding_service
 
     fallback = select_chunks(chunks, n=4)
 
     try:
-        svc = EmbeddingService()
+        svc = get_embedding_service()
         if not svc._available:
             logger.warning("Embeddings unavailable — using positional fallback")
             return fallback, fallback, fallback, fallback

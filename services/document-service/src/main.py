@@ -29,6 +29,14 @@ from src.infrastructure.storage.memory_store import table_update, blob_get
 async def lifespan(app: FastAPI):
     mode = "DEV (no auth)" if settings.SKIP_AUTH else "PROD"
     print(f"[Document Service] Starting — mode: {mode} | max upload: {settings.MAX_FILE_SIZE_BYTES // (1024*1024)} MB")
+    # Pre-warm the embedding model so the first real request isn't slow
+    try:
+        import asyncio
+        from src.ai.embeddings import get_embedding_service
+        await asyncio.to_thread(get_embedding_service)
+        print("[Document Service] Embedding model warm ✓")
+    except Exception as exc:
+        print(f"[Document Service] Embedding warm-up skipped: {exc}")
     yield
     print("[Document Service] Shutting down")
 

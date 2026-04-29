@@ -35,7 +35,19 @@ except ImportError:
 
 
 _MODEL_NAME = "all-MiniLM-L6-v2"
-_RRF_K      = 60   # RRF constant — higher = less aggressive rank difference
+_RRF_K      = 60
+
+# ── Singleton ──────────────────────────────────────────────────────────────────
+# Model loading takes 15-30s on Render free tier. We load it ONCE at module
+# level so every subsequent request reuses the warm model in memory.
+_singleton: "EmbeddingService | None" = None
+
+
+def get_embedding_service() -> "EmbeddingService":
+    global _singleton
+    if _singleton is None:
+        _singleton = EmbeddingService()
+    return _singleton
 
 
 class EmbeddingService:
