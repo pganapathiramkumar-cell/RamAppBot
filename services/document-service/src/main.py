@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from src.core.config import settings
 from src.core.exceptions import (
@@ -117,6 +118,94 @@ async def health():
         "llm_provider": settings.LLM_PROVIDER,
         "llm_model": settings.GROQ_MODEL if settings.LLM_PROVIDER == "groq" else settings.OLLAMA_MODEL,
     }
+
+
+# ── Privacy Policy ────────────────────────────────────────────────────────────
+
+_PRIVACY_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — RamVector</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         max-width: 760px; margin: 40px auto; padding: 0 24px;
+         color: #1e293b; line-height: 1.7; }
+  h1 { color: #0f172a; font-size: 28px; margin-bottom: 4px; }
+  h2 { color: #0f172a; font-size: 18px; margin-top: 36px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+  p, li { color: #475569; font-size: 15px; }
+  ul { padding-left: 20px; }
+  a { color: #2563eb; }
+  .meta { color: #94a3b8; font-size: 13px; margin-bottom: 32px; }
+  .highlight { background: #f0f9ff; border-left: 3px solid #2563eb;
+               padding: 14px 18px; border-radius: 4px; margin: 16px 0; }
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<p class="meta">RamVector &mdash; Last updated: April 29, 2026</p>
+
+<p>RamVector (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) is committed to protecting your privacy.
+This policy explains what data the RamVector mobile app collects, how it is used, and who it is shared with.</p>
+
+<h2>1. Data We Collect</h2>
+<ul>
+  <li><strong>PDF document content</strong> &mdash; the text extracted from PDFs you upload.</li>
+  <li><strong>Document metadata</strong> &mdash; filename and file size.</li>
+  <li><strong>Consent record</strong> &mdash; a session flag indicating you accepted this policy (stored on-device only).</li>
+</ul>
+<p>We do <strong>not</strong> collect your name, email address, location, device identifiers, or any other personal information.</p>
+
+<h2>2. How We Use Your Data</h2>
+<p>Uploaded PDF text is used solely to generate:</p>
+<ul>
+  <li>An AI-produced executive summary</li>
+  <li>Structured action points and key entities</li>
+  <li>A workflow diagram</li>
+</ul>
+<p>Results are returned to you in the app and are not used for advertising, profiling, or any other purpose.</p>
+
+<h2>3. Third-Party AI Service — Groq, Inc.</h2>
+<div class="highlight">
+  <p><strong>Your PDF text content is transmitted to Groq, Inc.</strong> (groq.com), a third-party AI service,
+  to perform the analysis described above. Groq processes this data on our behalf under their own
+  <a href="https://groq.com/privacy-policy/" target="_blank">Privacy Policy</a>.</p>
+  <p>By using RamVector and accepting this policy, you consent to your document text being sent to Groq for processing.</p>
+</div>
+<p>We do not sell, rent, or share your data with any other third parties.</p>
+
+<h2>4. Data Retention</h2>
+<ul>
+  <li>Documents are processed in memory and are <strong>not stored permanently</strong> on our servers.</li>
+  <li>Analysis results are held temporarily in server memory and are lost when the service restarts.</li>
+  <li>Groq's data retention is governed by <a href="https://groq.com/privacy-policy/" target="_blank">Groq's Privacy Policy</a>.</li>
+</ul>
+
+<h2>5. Data Security</h2>
+<p>All data is transmitted over HTTPS (TLS). We do not log or store the content of your documents beyond the time needed to complete the analysis.</p>
+
+<h2>6. Children's Privacy</h2>
+<p>RamVector is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+<h2>7. Your Rights</h2>
+<p>Because we do not store personal data permanently, there is no persistent record to delete. You can withdraw consent at any time by uninstalling the app.</p>
+
+<h2>8. Contact Us</h2>
+<p>Questions about this policy? Contact us at:
+<a href="mailto:ramgigatech@gmail.com">ramgigatech@gmail.com</a></p>
+
+<h2>9. Changes to This Policy</h2>
+<p>We may update this policy from time to time. The &ldquo;last updated&rdquo; date at the top will reflect any changes.
+Continued use of the app after changes constitutes acceptance of the revised policy.</p>
+
+</body>
+</html>"""
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    return HTMLResponse(content=_PRIVACY_HTML, status_code=200)
 
 
 # ── Documents ──────────────────────────────────────────────────────────────────
