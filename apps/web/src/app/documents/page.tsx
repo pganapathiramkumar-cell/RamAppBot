@@ -137,6 +137,22 @@ export default function RamVectorPage() {
     setMobileTab('summary');
   }
 
+  async function retryAnalysis() {
+    if (!docId) return;
+    setAnalysis(null);
+    setProgress(0);
+    setPhase('processing');
+    try {
+      await fetch(`${DOC_API}/analyses/${docId}/retry`, { method: 'POST' });
+    } catch {
+      // polling will pick up the reset status
+    }
+  }
+
+  const isPartialResult =
+    analysis?.summary === 'Summary unavailable — please retry.' ||
+    (analysis !== null && (analysis.snapshot?.word_count ?? 1) === 0);
+
   const mobileCards = [
     {
       id: 'summary' as const,
@@ -415,6 +431,26 @@ export default function RamVectorPage() {
                     {filename}
                   </span>
                 </div>
+                {isPartialResult && (
+                  <button
+                    onClick={retryAnalysis}
+                    style={{
+                      background: 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '9px 20px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      width: '100%',
+                      marginBottom: 8,
+                      boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
+                    }}
+                  >
+                    Retry Analysis
+                  </button>
+                )}
                 <button
                   onClick={reset}
                   style={{

@@ -18,7 +18,9 @@ import httpx
 
 from src.core.config import settings
 
-_REQUEST_TIMEOUT = 30.0
+# Keep well under the per-chain asyncio budget (22s) so the fallback chain
+# (Groq → NVIDIA → Cerebras → Mock) has room to complete within the window.
+_REQUEST_TIMEOUT = httpx.Timeout(connect=5.0, read=12.0, write=5.0, pool=5.0)
 _RATE_LIMIT_CODES = {429, 529}
 
 
