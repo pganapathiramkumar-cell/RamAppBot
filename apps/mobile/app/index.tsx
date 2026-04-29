@@ -427,6 +427,11 @@ export default function HomeScreen() {
   const pollCountRef   = useRef(0);
   const lastUploadRef  = useRef(0);
 
+  /* Silent wake-ping — fires once on mount to wake Render before user uploads */
+  useEffect(() => {
+    fetch(`${API.replace('/api/v1', '')}/health`, { method: 'GET' }).catch(() => null);
+  }, []);
+
   /* Pulse animation during processing */
   useEffect(() => {
     if (phase !== 'processing') { pulseAnim.setValue(1); return; }
@@ -538,7 +543,7 @@ export default function HomeScreen() {
     form.append('file', { uri: asset.uri, name: asset.name, type: 'application/pdf' } as unknown as Blob);
 
     const controller = new AbortController();
-    uploadTimerRef.current = setTimeout(() => controller.abort(), 30_000);
+    uploadTimerRef.current = setTimeout(() => controller.abort(), 60_000);
 
     try {
       const res = await fetch(`${API}/documents/upload`, {
