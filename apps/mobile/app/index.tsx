@@ -17,7 +17,7 @@ const API             = process.env.EXPO_PUBLIC_DOCUMENT_API_URL || 'https://ram
 const MAX_SIZE        = 5 * 1024 * 1024;
 const MAX_POLL        = 40;        // 40 × 3 s = 2 min hard cap
 const UPLOAD_COOLDOWN = 5_000;     // ms between consecutive uploads
-const PRIVACY_URL     = 'https://ramappbot.onrender.com/privacy';
+const PRIVACY_URL     = 'https://ram-vector.vercel.app/privacy';
 
 // Module-level flag: resets when the app is fully killed — acceptable for a session consent
 let _sessionConsentGiven = false;
