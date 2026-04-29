@@ -1,14 +1,13 @@
 """
-Full document analysis pipeline:
-  PDF text → chunk → embed (sync) → per-chain Top-K retrieval + BM25 rerank → LLM
+Full document analysis pipeline — 30-second hard cap with partial results.
 
-Retrieval flow per chain:
-  1. Embed all chunks into ChromaDB  (blocking, ~1-2s, done once)
-  2. Each chain issues its own semantic query
-  3. ChromaDB returns Top-10 candidates by cosine similarity
-  4. BM25 rescores candidates on keyword overlap
-  5. RRF fusion combines both ranks → Top-3 chunks sent to LLM
-  6. Fallback: positional select_chunks() if embeddings unavailable
+Strategy:
+  - Single-chunk docs skip embedding entirely (no overhead for small PDFs)
+  - Embedding capped at 5s; falls back to positional selection on timeout
+  - Each chain runs with a 22s individual timeout
+  - asyncio.gather(return_exceptions=True) — if one chain times out or fails,
+    the others still complete and partial results are returned
+  - Total wall-clock budget: ~28s (upload + extraction handled outside)
 """
 
 from __future__ import annotations
@@ -28,23 +27,42 @@ from src.core.exceptions import EmptyDocumentError
 logger = logging.getLogger(__name__)
 
 _MAX_CONCURRENT_LLM_CALLS = 4
-_TOP_K   = 10   # candidates retrieved from vector DB per chain
-_TOP_N   = 3    # chunks kept after reranking — sent to LLM
+_EMBED_TIMEOUT  = 5    # seconds — skip embedding if it takes longer
+_CHAIN_TIMEOUT  = 22   # seconds per chain — return partial if exceeded
+_TOP_K = 10
+_TOP_N = 3
 
-# Per-chain semantic queries — used to retrieve the most relevant chunks
 _QUERY_SUMMARY  = "executive summary main purpose key findings conclusions overview"
 _QUERY_SNAPSHOT = "primary topic main subject entities organizations tools systems concepts"
 _QUERY_EXTRACT  = "names people dates deadlines obligations tasks deliverables risks liabilities"
 _QUERY_WORKFLOW = "action steps next steps process workflow responsibilities timeline owner"
 
+# ── Partial result defaults ────────────────────────────────────────────────────
+
+def _default_snapshot() -> dict:
+    return {
+        "primary_topic": "", "secondary_topics": [], "word_count": 0,
+        "key_ideas": [], "key_concepts": [], "relationships": [],
+        "important_entities": {"tools": [], "systems": [], "metrics": [], "people": [], "organizations": []},
+    }
+
+def _default_entities() -> dict:
+    return {"names": [], "dates": [], "clauses": [], "tasks": [], "risks": []}
+
+def _default_workflow() -> list:
+    return [
+        {"step_number": 1, "action": "Review document", "priority": "Medium",
+         "description": "Read and understand the document content.", "owner": None, "deadline": None},
+    ]
+
 
 class DocumentAnalysisPipeline:
     """
-    Single-pass RAG pipeline:
-      1. Chunk text once
-      2. Embed all chunks into ChromaDB (synchronous — needed before retrieval)
-      3. Each chain retrieves its own Top-K chunks → BM25 rerank → Top-3 → LLM
-      4. All 4 chains run in parallel
+    30-second budget pipeline:
+      1. Chunk text
+      2. Embed (skipped for single-chunk docs; 5s timeout otherwise)
+      3. All 4 chains in parallel, each with 22s timeout
+      4. Return whatever completed — partial results > total failure
     """
 
     def __init__(self, llm: LLMClient | None = None):
@@ -63,18 +81,32 @@ class DocumentAnalysisPipeline:
         chunks = chunk_text(text)
         logger.info("document=%s  chars=%d  chunks=%d", document_id, len(text), len(chunks))
 
-        # ── Step 2: Embed synchronously (must complete before retrieval) ───
-        sum_chunks, snap_chunks, ext_chunks, wf_chunks = await asyncio.to_thread(
-            _embed_and_retrieve, document_id, chunks
+        # ── Step 2: Retrieve chunks per chain ──────────────────────────────
+        # Single-chunk docs: skip embedding overhead, pass chunk directly
+        if len(chunks) == 1:
+            sum_chunks = snap_chunks = ext_chunks = wf_chunks = chunks
+            logger.info("document=%s  single-chunk — skipping embedding", document_id)
+        else:
+            sum_chunks, snap_chunks, ext_chunks, wf_chunks = await _embed_with_timeout(
+                document_id, chunks
+            )
+
+        # ── Step 3: All chains in parallel, each with hard timeout ─────────
+        raw = await asyncio.gather(
+            _with_timeout(self._snapshot.run(text, chunks=snap_chunks), _CHAIN_TIMEOUT, "snapshot"),
+            _with_timeout(self._summarize.run(text, chunks=sum_chunks), _CHAIN_TIMEOUT, "summary"),
+            _with_timeout(self._extract.run(text, chunks=ext_chunks),   _CHAIN_TIMEOUT, "extract"),
+            _with_timeout(self._workflow.run(text, chunks=wf_chunks),   _CHAIN_TIMEOUT, "workflow"),
+            return_exceptions=True,
         )
 
-        # ── Step 3: Run all chains in parallel with retrieved chunks ───────
-        snapshot, summary, entities, workflow = await asyncio.gather(
-            self._snapshot.run(text, chunks=snap_chunks),
-            self._summarize.run(text, chunks=sum_chunks),
-            self._extract.run(text, chunks=ext_chunks),
-            self._workflow.run(text, chunks=wf_chunks),
-        )
+        snapshot = raw[0] if isinstance(raw[0], dict)  else _default_snapshot()
+        summary  = raw[1] if isinstance(raw[1], str)   else "Summary unavailable — please retry."
+        entities = raw[2] if isinstance(raw[2], dict)  else _default_entities()
+        workflow = raw[3] if isinstance(raw[3], list)  else _default_workflow()
+
+        completed = sum(1 for r in raw if not isinstance(r, Exception))
+        logger.info("document=%s  chains completed: %d/4", document_id, completed)
 
         return {
             "snapshot":    snapshot,
@@ -85,13 +117,44 @@ class DocumentAnalysisPipeline:
         }
 
 
+async def _with_timeout(coro, seconds: float, name: str):
+    """Run a coroutine with a timeout; log and return the exception on failure."""
+    try:
+        return await asyncio.wait_for(coro, timeout=seconds)
+    except asyncio.TimeoutError:
+        logger.warning("Chain '%s' timed out after %ss", name, seconds)
+        return TimeoutError(f"{name} timed out")
+    except Exception as exc:
+        logger.warning("Chain '%s' failed: %s", name, exc)
+        return exc
+
+
+async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
+    """
+    Embed + retrieve with a 5s budget.
+    If embedding takes too long, falls back to positional select_chunks.
+    """
+    fallback = (
+        select_chunks(chunks, n=4),
+        select_chunks(chunks, n=4),
+        select_chunks(chunks, n=4),
+        select_chunks(chunks, n=4),
+    )
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_embed_and_retrieve, document_id, chunks),
+            timeout=_EMBED_TIMEOUT,
+        )
+        return result
+    except asyncio.TimeoutError:
+        logger.warning("document=%s  embedding timed out — using positional fallback", document_id)
+        return fallback
+    except Exception as exc:
+        logger.warning("document=%s  embedding error: %s — using fallback", document_id, exc)
+        return fallback
+
+
 def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
-    """
-    Runs in a thread (CPU-bound).
-    Embeds all chunks, then retrieves the best chunks per chain via
-    Top-K vector search + BM25 rerank + RRF fusion.
-    Falls back to positional select_chunks() if embeddings unavailable.
-    """
     from src.ai.embeddings import get_embedding_service
 
     fallback = select_chunks(chunks, n=4)
@@ -99,26 +162,19 @@ def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
     try:
         svc = get_embedding_service()
         if not svc._available:
-            logger.warning("Embeddings unavailable — using positional fallback")
             return fallback, fallback, fallback, fallback
 
-        # Upsert all chunks into ChromaDB
         svc.upsert_chunks(document_id, chunks)
 
         top_k = min(_TOP_K, len(chunks))
         top_n = min(_TOP_N, len(chunks))
 
-        sum_chunks  = svc.retrieve_and_rerank(document_id, _QUERY_SUMMARY,  top_k=top_k, top_n=top_n) or fallback
-        snap_chunks = svc.retrieve_and_rerank(document_id, _QUERY_SNAPSHOT, top_k=top_k, top_n=top_n) or fallback
-        ext_chunks  = svc.retrieve_and_rerank(document_id, _QUERY_EXTRACT,  top_k=top_k, top_n=top_n) or fallback
-        wf_chunks   = svc.retrieve_and_rerank(document_id, _QUERY_WORKFLOW, top_k=top_k, top_n=top_n) or fallback
-
-        logger.info(
-            "document=%s  retrieved chunks — summary:%d  snapshot:%d  extract:%d  workflow:%d",
-            document_id, len(sum_chunks), len(snap_chunks), len(ext_chunks), len(wf_chunks),
+        return (
+            svc.retrieve_and_rerank(document_id, _QUERY_SUMMARY,  top_k=top_k, top_n=top_n) or fallback,
+            svc.retrieve_and_rerank(document_id, _QUERY_SNAPSHOT, top_k=top_k, top_n=top_n) or fallback,
+            svc.retrieve_and_rerank(document_id, _QUERY_EXTRACT,  top_k=top_k, top_n=top_n) or fallback,
+            svc.retrieve_and_rerank(document_id, _QUERY_WORKFLOW, top_k=top_k, top_n=top_n) or fallback,
         )
-        return sum_chunks, snap_chunks, ext_chunks, wf_chunks
-
     except Exception as exc:
-        logger.warning("Retrieval failed for %s: %s — using fallback", document_id, exc)
+        logger.warning("Retrieval failed for %s: %s — fallback", document_id, exc)
         return fallback, fallback, fallback, fallback

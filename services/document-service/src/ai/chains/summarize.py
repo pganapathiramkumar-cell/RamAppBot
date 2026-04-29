@@ -13,9 +13,9 @@ from __future__ import annotations
 from src.ai.chunker import chunk_text
 from src.core.exceptions import EmptyDocumentError
 
-_TOKEN_THRESHOLD  = 3_000   # chars — below this, single stuffing call
+_TOKEN_THRESHOLD  = 3_000
 _CHARS_PER_TOKEN  = 4
-_MAX_MAP_CHUNKS   = 5       # cap map-reduce to 5 chunks max (≈5 LLM calls → reduce)
+_MAX_MAP_CHUNKS   = 3       # max 3 map calls → reduce — keeps summary under 15s
 
 _STUFFING_SYSTEM = (
     "You are a senior document analyst. Write a detailed, structured summary of the document below. "
@@ -75,7 +75,7 @@ class SummarizationChain:
         return resp.content.strip()
 
     async def _stuffing_chain(self, text: str) -> str:
-        return await self._llm_call(text, _STUFFING_SYSTEM, max_tokens=1500)
+        return await self._llm_call(text, _STUFFING_SYSTEM, max_tokens=1000)
 
     async def _map_reduce_chain(self, chunks: list[str]) -> str:
         # Cap chunks to avoid runaway LLM calls on very large documents
