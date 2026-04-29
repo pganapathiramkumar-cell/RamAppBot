@@ -81,7 +81,7 @@ class EmbeddingService:
         return self._model.encode(text).tolist()
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        if not self._available:
+        if not self._available or not texts:
             return []
         return self._model.encode(texts).tolist()
 

@@ -111,6 +111,10 @@ def _parse_steps(raw: str) -> list[dict]:
                 "owner":       str(s["owner"]).strip() if s.get("owner") else None,
                 "deadline":    str(s["deadline"]).strip() if s.get("deadline") else None,
             })
+        # Sort by original step_number then renumber 1,2,3... regardless of LLM output
+        validated.sort(key=lambda x: x["step_number"])
+        for i, step in enumerate(validated):
+            step["step_number"] = i + 1
         return validated
     except (json.JSONDecodeError, ValueError):
         return []

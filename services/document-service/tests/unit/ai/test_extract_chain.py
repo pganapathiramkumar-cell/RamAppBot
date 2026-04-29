@@ -66,7 +66,7 @@ class TestEntityExtractionChain:
         """If LLM returns malformed JSON, chain retries up to max_retries times."""
         call_count = 0
 
-        async def flaky_invoke(prompt, system=""):
+        async def flaky_invoke(prompt, system="", **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count < 3:

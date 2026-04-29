@@ -42,12 +42,10 @@ def decode_token(token: str) -> dict:
         )
     except jwt.ExpiredSignatureError:
         raise JWTExpiredError()
-    except (jwt.InvalidSignatureError, jwt.DecodeError):
+    except jwt.ImmatureSignatureError:
+        # Token has a future iat — PyJWT raises this since v2.4
         raise JWTSignatureError()
-
-    # Reject tokens issued in the future
-    iat = payload.get("iat", 0)
-    if iat > datetime.utcnow().timestamp() + 5:   # 5s clock-skew tolerance
+    except (jwt.InvalidSignatureError, jwt.DecodeError):
         raise JWTSignatureError()
 
     return payload
