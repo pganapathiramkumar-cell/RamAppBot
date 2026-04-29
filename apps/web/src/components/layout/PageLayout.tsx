@@ -53,16 +53,12 @@ export function PageLayout({ children, title, subtitle, action, breadcrumb }: Pr
           </nav>
 
           <div className="order-2 sm:order-3 flex items-center gap-3 flex-shrink-0">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/50">
-              <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live
-              </span>
-            </div>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                 style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-              RV
-            </div>
+            <a
+              href="/privacy"
+              className="hidden sm:block text-xs text-white/40 hover:text-white/70 transition-colors"
+            >
+              Privacy
+            </a>
           </div>
         </div>
       </header>

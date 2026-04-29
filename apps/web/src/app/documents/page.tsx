@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { MermaidChart } from '../../features/document/components/MermaidChart';
 import { Analysis, DocumentSnapshot } from '../../features/document/store/documentSlice';
 
-const DOC_API = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const DOC_API = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'https://ramappbot.onrender.com/api/v1';
 const MAX_SIZE = 5 * 1024 * 1024;
 type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'failed';
 type MobileTab = 'summary' | 'actions' | 'workflow';
@@ -35,6 +35,11 @@ export default function RamVectorPage() {
 
   useEffect(() => {
     document.title = 'DocuMind | RamVector';
+  }, []);
+
+  /* Silent wake-ping — keeps Render warm before the user uploads */
+  useEffect(() => {
+    fetch(DOC_API.replace('/api/v1', '') + '/health', { method: 'GET' }).catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -230,47 +235,17 @@ export default function RamVectorPage() {
             ))}
           </nav>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, order: isMobile ? 2 : 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, order: isMobile ? 2 : 3 }}>
             {!isMobile && (
-              <span
-                style={{
-                  fontSize: 12,
-                  color: 'rgba(255,255,255,0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
+              <a
+                href="/privacy"
+                style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.15s' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#34d399', fontWeight: 600 }}>
-                  <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      background: '#34d399',
-                      display: 'inline-block',
-                    }}
-                  />
-                  Live
-                </span>
-              </span>
+                Privacy
+              </a>
             )}
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              R
-            </div>
           </div>
         </div>
       </header>

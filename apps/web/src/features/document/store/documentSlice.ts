@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-const DOC_API = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'http://localhost:8006/api/v1';
+const DOC_API = process.env.NEXT_PUBLIC_DOCUMENT_API_URL || 'https://ramappbot.onrender.com/api/v1';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
