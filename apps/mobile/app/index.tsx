@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   ScrollView, Alert, Platform, Animated, StatusBar,
   BackHandler, AppState, AppStateStatus, Linking, Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -323,11 +324,16 @@ function WorkflowTab({ steps }: { steps: WorkflowStep[] }) {
 }
 
 /* ── GDPR Consent Modal ──────────────────────────────────────────── */
+const GROQ_PRIVACY_URL = 'https://groq.com/privacy-policy/';
+
 function ConsentModal({ onAccept }: { onAccept: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible animationType="slide" statusBarTranslucent>
-      <View style={[cv.root, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView
+        contentContainerStyle={[cv.root, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={cv.logoWrap}>
           <View style={cv.logoDiamond} />
@@ -338,31 +344,54 @@ function ConsentModal({ onAccept }: { onAccept: () => void }) {
         </View>
         <Text style={cv.heading}>Your Privacy Matters</Text>
         <Text style={cv.body}>
-          Before you continue, please know that RamVector processes the PDF
-          documents you upload using AI to generate summaries, action points,
-          and workflow diagrams. Your documents are transmitted securely over
-          HTTPS and are not retained permanently on our servers.
+          Before you continue, please review how RamVector handles your data.
+          When you upload a PDF, its text content is sent to a third-party AI
+          service (Groq, Inc.) to generate summaries, action points, and
+          workflow diagrams. By tapping Accept you consent to this processing.
         </Text>
+
         <View style={cv.infoBox}>
-          <Text style={cv.infoTitle}>What we process</Text>
-          <Text style={cv.infoRow}>• PDF text content for AI analysis</Text>
+          <Text style={cv.infoTitle}>What data is sent</Text>
+          <Text style={cv.infoRow}>• PDF text content extracted from your document</Text>
           <Text style={cv.infoRow}>• Document metadata (filename, file size)</Text>
-          <Text style={cv.infoRow}>• AI results are returned only to you</Text>
         </View>
+
+        <View style={[cv.infoBox, { marginTop: 0 }]}>
+          <Text style={cv.infoTitle}>Who receives your data</Text>
+          <Text style={cv.infoRow}>• RamVector servers (ramappbot.onrender.com) — document upload &amp; storage</Text>
+          <Text style={cv.infoRow}>• Groq, Inc. (groq.com) — AI analysis of document text</Text>
+          <Text style={cv.infoRow}>• AI results are returned only to you and not shared further</Text>
+        </View>
+
+        <View style={[cv.infoBox, { marginTop: 0 }]}>
+          <Text style={cv.infoTitle}>Data retention</Text>
+          <Text style={cv.infoRow}>• Documents are not stored permanently on our servers</Text>
+          <Text style={cv.infoRow}>• Groq processes data per their privacy policy (linked below)</Text>
+        </View>
+
         <TouchableOpacity
           style={cv.policyLink}
           onPress={() => Linking.openURL(PRIVACY_URL).catch(() => null)}
           activeOpacity={0.7}
         >
-          <Text style={cv.policyLinkText}>Read our full Privacy Policy →</Text>
+          <Text style={cv.policyLinkText}>Read RamVector Privacy Policy →</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[cv.policyLink, { marginTop: -12 }]}
+          onPress={() => Linking.openURL(GROQ_PRIVACY_URL).catch(() => null)}
+          activeOpacity={0.7}
+        >
+          <Text style={cv.policyLinkText}>Read Groq Privacy Policy →</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={cv.acceptBtn} onPress={onAccept} activeOpacity={0.85}>
           <Text style={cv.acceptBtnText}>I Understand &amp; Accept</Text>
         </TouchableOpacity>
         <Text style={cv.footNote}>
           You can withdraw consent at any time by uninstalling the app.
+          No data is sent until you upload a document.
         </Text>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
@@ -370,6 +399,8 @@ function ConsentModal({ onAccept }: { onAccept: () => void }) {
 /* ── Main screen ─────────────────────────────────────────────────── */
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
 
   /* Consent */
   const [showConsent,    setShowConsent]    = useState(!_sessionConsentGiven);
@@ -569,7 +600,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + Space['4xl'] }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + Space['4xl'] }, isTablet && s.scrollTablet]}
         showsVerticalScrollIndicator={false}
       >
         {/* Centre-cap at 600 pt for tablet & large phones */}
@@ -580,9 +611,9 @@ export default function HomeScreen() {
             <>
               <View style={s.hero}>
                 <RamVectorLogo />
-                <Text style={s.heroTitle}>RamVector</Text>
-                <Text style={s.heroSub}>Intelligent Document Analysis</Text>
-                <Text style={s.heroDesc}>
+                <Text style={[s.heroTitle, isTablet && s.heroTitleTablet]}>RamVector</Text>
+                <Text style={[s.heroSub, isTablet && s.heroSubTablet]}>Intelligent Document Analysis</Text>
+                <Text style={[s.heroDesc, isTablet && s.heroDescTablet]}>
                   Upload any PDF and instantly receive an AI-generated executive
                   summary, structured action points and a visual workflow diagram.
                 </Text>
@@ -600,14 +631,14 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              <TouchableOpacity style={s.uploadZone} onPress={pickAndUpload} activeOpacity={0.85}>
-                <View style={s.uploadIconWrap}>
-                  <Text style={s.uploadIconText}>⬆️</Text>
+              <TouchableOpacity style={[s.uploadZone, isTablet && s.uploadZoneTablet]} onPress={pickAndUpload} activeOpacity={0.85}>
+                <View style={[s.uploadIconWrap, isTablet && s.uploadIconWrapTablet]}>
+                  <Text style={[s.uploadIconText, isTablet && s.uploadIconTextTablet]}>⬆️</Text>
                 </View>
-                <Text style={s.uploadTitle}>Tap to upload a PDF</Text>
-                <Text style={s.uploadSub}>Maximum 5 MB · PDF only</Text>
-                <View style={s.uploadBtn}>
-                  <Text style={s.uploadBtnText}>Choose File</Text>
+                <Text style={[s.uploadTitle, isTablet && s.uploadTitleTablet]}>Tap to upload a PDF</Text>
+                <Text style={[s.uploadSub, isTablet && s.uploadSubTablet]}>Maximum 5 MB · PDF only</Text>
+                <View style={[s.uploadBtn, isTablet && s.uploadBtnTablet]}>
+                  <Text style={[s.uploadBtnText, isTablet && s.uploadBtnTextTablet]}>Choose File</Text>
                 </View>
               </TouchableOpacity>
             </>
@@ -763,9 +794,9 @@ const s = StyleSheet.create({
   headerBrand:    { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: '#ffffff', letterSpacing: -0.3 },
 
   scroll: { paddingHorizontal: Space.xl, paddingTop: Space['2xl'], paddingBottom: Space['5xl'] },
+  scrollTablet: { paddingHorizontal: Space['4xl'] },
 
-  /* Tablet / large phone: centre-cap content at 600 pt */
-  contentWrapper: { maxWidth: 600, width: '100%', alignSelf: 'center' },
+  contentWrapper: { maxWidth: 720, width: '100%', alignSelf: 'center' },
 
   /* Hero */
   hero: { alignItems: 'center', marginBottom: Space['3xl'] },
@@ -903,6 +934,18 @@ const s = StyleSheet.create({
   uploadNewBtnText: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: '#ffffff' },
 
   footer: { textAlign: 'center', fontSize: FontSize.xs, color: '#94a3b8', marginTop: Space['3xl'] },
+
+  /* ── Tablet overrides ── */
+  heroTitleTablet:      { fontSize: 42, letterSpacing: -1.5 },
+  heroSubTablet:        { fontSize: FontSize.xl },
+  heroDescTablet:       { fontSize: FontSize.base, maxWidth: 520, lineHeight: 24 },
+  uploadZoneTablet:     { padding: Space['6xl'] },
+  uploadIconWrapTablet: { width: 96, height: 96, borderRadius: 24, marginBottom: Space['2xl'] },
+  uploadIconTextTablet: { fontSize: 48 },
+  uploadTitleTablet:    { fontSize: FontSize.xl },
+  uploadSubTablet:      { fontSize: FontSize.base },
+  uploadBtnTablet:      { paddingHorizontal: Space['4xl'], paddingVertical: 17 },
+  uploadBtnTextTablet:  { fontSize: FontSize.lg },
 });
 
 /* ── Result card styles ──────────────────────────────────────────── */
@@ -972,7 +1015,7 @@ const snap = StyleSheet.create({
 /* ── Consent modal styles ────────────────────────────────────────── */
 const cv = StyleSheet.create({
   root: {
-    flex: 1, backgroundColor: '#ffffff',
+    flexGrow: 1, backgroundColor: '#ffffff',
     paddingHorizontal: Space['3xl'],
     alignItems: 'center', justifyContent: 'center',
   },
@@ -1003,7 +1046,7 @@ const cv = StyleSheet.create({
   infoBox: {
     width: '100%', backgroundColor: '#f8fafc',
     borderRadius: Radius.lg, borderWidth: 1, borderColor: '#e2e8f0',
-    padding: Space.lg, marginBottom: Space.xl,
+    padding: Space.lg, marginBottom: Space.md,
   },
   infoTitle: {
     fontSize: FontSize.xs, fontWeight: FontWeight.bold,
