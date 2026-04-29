@@ -12,10 +12,24 @@ import re
 
 from src.core.exceptions import ExtractionFailedError
 
-# Workflow works best with full document context but must stay within the
-# LLM context window. Cap at ~12 000 chars (≈3 000 tokens) which leaves
-# room for the system prompt and response.
 _MAX_WORKFLOW_CHARS = 12_000
+
+WORKFLOW_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "required": ["step_number", "action", "priority"],
+        "properties": {
+            "step_number": {"type": "integer"},
+            "action":      {"type": "string"},
+            "priority":    {"type": "string", "enum": ["High", "Medium", "Low"]},
+            "description": {"type": ["string", "null"]},
+            "owner":       {"type": ["string", "null"]},
+            "deadline":    {"type": ["string", "null"]},
+        },
+        "additionalProperties": False,
+    },
+}
 
 _FALLBACK_STEPS = [
     {
