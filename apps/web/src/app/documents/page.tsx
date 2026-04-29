@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 import { useRef, useState, useEffect, DragEvent, ChangeEvent, useCallback } from 'react';
 import Link from 'next/link';
 import { MermaidChart } from '../../features/document/components/MermaidChart';
