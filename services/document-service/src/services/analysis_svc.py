@@ -1,5 +1,6 @@
 """Analysis service — orchestrates the full AI pipeline for a document."""
 
+from pathlib import Path
 import uuid
 
 from src.core.exceptions import AnalysisNotReadyError, DocumentNotFoundError
@@ -18,35 +19,38 @@ async def run_ai_pipeline(document_id: str, text: str) -> dict:
     return await pipeline.run(document_id=document_id, text=text)
 
 
-async def extract_text_from_pdf(file_bytes: bytes) -> str:
+async def extract_text_from_pdf(file_source: bytes | str | Path) -> str:
     """
-    Extract text from a PDF using PyMuPDF (fitz).
-    Handles complex layouts, multi-column, tables, and embedded fonts.
-    Falls back to pypdf if PyMuPDF is unavailable.
-    """
-    import io
-    # PyMuPDF — preserves reading order, handles complex layouts
-    try:
-        import fitz  # pymupdf
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        pages = []
-        for page in doc:
-            # "text" mode with preserve_whitespace=False for clean output
-            text = page.get_text("text", flags=fitz.TEXT_PRESERVE_LIGATURES | fitz.TEXT_MEDIABOX_CLIP)
-            if text.strip():
-                pages.append(text.strip())
-        doc.close()
-        if pages:
-            return "\n\n".join(pages)
-    except Exception:
-        pass
+    Extract text from a PDF page by page using pypdf.
 
-    # Fallback to pypdf for compatibility
+    Accepts either an in-memory byte string or a filesystem path.
+    The path-based flow is preferred in production because it keeps PDF bytes
+    out of resident memory while the analysis pipeline is running.
+    """
     try:
         from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(file_bytes), strict=False)
-        pages = [page.extract_text() or "" for page in reader.pages]
-        return "\n\n".join(p.strip() for p in pages if p.strip())
+        if isinstance(file_source, (str, Path)):
+            pdf_path = Path(file_source)
+            if not pdf_path.exists():
+                return ""
+            with pdf_path.open("rb") as handle:
+                reader = PdfReader(handle, strict=False)
+                pages: list[str] = []
+                for page in reader.pages:
+                    text = page.extract_text() or ""
+                    if text.strip():
+                        pages.append(text.strip())
+                return "\n\n".join(pages)
+
+        import io
+
+        reader = PdfReader(io.BytesIO(file_source), strict=False)
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            if text.strip():
+                pages.append(text.strip())
+        return "\n\n".join(pages)
     except Exception:
         return ""
 

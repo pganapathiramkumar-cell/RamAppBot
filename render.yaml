@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: rambot-document-service
+    env: docker
+    rootDir: services/document-service
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SKIP_AUTH
+        value: "false"
+      - key: LLM_PROVIDER
+        value: groq
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: MAX_FILE_SIZE_BYTES
+        value: "5242880"
+      - key: CORS_ALLOW_ORIGINS
+        value: https://your-frontend.onrender.com

@@ -1,46 +1,22 @@
-"""
-Embedding service — sentence-transformers + ChromaDB.
+"""Lightweight chunk ranking for document RAG.
 
-Retrieval pipeline:
-  upsert_chunks()        → embed + store all chunks
-  retrieve_and_rerank()  → Top-K vector search → BM25 rescore → RRF fusion → Top-N
-
-RRF (Reciprocal Rank Fusion) combines vector similarity rank and BM25 keyword
-rank into a single score without needing a separate neural reranker model.
+This implementation avoids local embedding models and ChromaDB entirely.
+On Render's 512MB plan, the best option is to use API embeddings when an
+`OPENAI_API_KEY` is available and fall back to a deterministic lexical scorer
+when it is not.
 """
 
 from __future__ import annotations
 
 import logging
+import math
+from collections import Counter
+
+from src.ai.chunker import select_chunks
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-try:
-    import chromadb
-    from sentence_transformers import SentenceTransformer
-    _DEPS_AVAILABLE = True
-except ImportError:
-    _DEPS_AVAILABLE = False
-    logger.warning(
-        "sentence-transformers or chromadb not installed. "
-        "Embedding will be skipped. Run: pip install sentence-transformers chromadb"
-    )
-
-try:
-    from rank_bm25 import BM25Okapi
-    _BM25_AVAILABLE = True
-except ImportError:
-    _BM25_AVAILABLE = False
-    logger.warning("rank_bm25 not installed — BM25 reranking disabled. Run: pip install rank_bm25")
-
-
-_MODEL_NAME    = "all-MiniLM-L6-v2"
-_EMBEDDING_DIM = 384   # all-MiniLM-L6-v2 output dimension — used by tests
-_RRF_K         = 60
-
-# ── Singleton ──────────────────────────────────────────────────────────────────
-# Model loading takes 15-30s on Render free tier. We load it ONCE at module
-# level so every subsequent request reuses the warm model in memory.
 _singleton: "EmbeddingService | None" = None
 
 
@@ -52,136 +28,99 @@ def get_embedding_service() -> "EmbeddingService":
 
 
 class EmbeddingService:
-    """
-    Wraps sentence-transformers for embedding and ChromaDB for storage/retrieval.
-    All methods are no-ops if dependencies are not installed.
-    """
+    def __init__(self) -> None:
+        self._available = bool(settings.OPENAI_API_KEY) and settings.EMBEDDING_PROVIDER in {"api", "openai"}
+        self._client = None
+        if self._available:
+            from openai import AsyncOpenAI
 
-    def __init__(self, persist_path: str | None = None):
-        if not _DEPS_AVAILABLE:
-            self._available = False
-            return
+            self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    @staticmethod
+    def _lexical_score(query: str, chunk: str) -> float:
+        query_terms = [token for token in query.lower().split() if token]
+        if not query_terms:
+            return 0.0
+
+        query_counts = Counter(query_terms)
+        chunk_tokens = chunk.lower().split()
+        chunk_counts = Counter(chunk_tokens)
+        overlap = sum(min(query_counts[token], chunk_counts.get(token, 0)) for token in query_counts)
+        if not overlap:
+            return 0.0
+
+        return overlap / math.sqrt(len(query_terms) * max(1, len(chunk_tokens)))
+
+    @staticmethod
+    def _rank_by_score(query: str, chunks: list[str], scores: list[float], top_n: int) -> list[str]:
+        ranked = sorted(range(len(chunks)), key=lambda index: scores[index], reverse=True)
+        selected = [chunks[index] for index in ranked[:top_n] if chunks[index].strip()]
+        return selected or select_chunks(chunks, n=top_n)
+
+    async def retrieve(self, query: str, chunks: list[str], top_n: int = 4) -> list[str]:
+        if not chunks:
+            return []
+
+        top_n = max(1, min(top_n, len(chunks)))
+        if not self._available or self._client is None:
+            scores = [self._lexical_score(query, chunk) for chunk in chunks]
+            return self._rank_by_score(query, chunks, scores, top_n)
 
         try:
-            self._model = SentenceTransformer(_MODEL_NAME)
-            # EphemeralClient — in-memory only, no disk dependency.
-            # Render free tier has no persistent disk; PersistentClient would fail silently.
-            self._chroma = chromadb.EphemeralClient()
-            self._collection = self._chroma.get_or_create_collection("documents")
-            self._available = True
-        except Exception as exc:
-            logger.warning("EmbeddingService init failed: %s — embeddings disabled.", exc)
-            self._available = False
-
-    # ── Embedding ──────────────────────────────────────────────────────────
-
-    def embed(self, text: str) -> list[float]:
-        if not self._available:
-            return []
-        return self._model.encode(text).tolist()
-
-    def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        if not self._available or not texts:
-            return []
-        return self._model.encode(texts).tolist()
-
-    # ── Upsert ─────────────────────────────────────────────────────────────
-
-    def upsert_chunks(self, document_id: str, chunks: list[str]) -> None:
-        """Embed and store all chunks for a document in ChromaDB."""
-        if not self._available or not chunks:
-            return
-        ids = [f"{document_id}::chunk::{i}" for i in range(len(chunks))]
-        embeddings = self.embed_batch(chunks)
-        metadatas = [
-            {"document_id": document_id, "chunk_index": i}
-            for i in range(len(chunks))
-        ]
-        self._collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=chunks,
-            metadatas=metadatas,
-        )
-        logger.info("Upserted %d chunks for document %s", len(chunks), document_id)
-
-    # ── Query ──────────────────────────────────────────────────────────────
-
-    def query(self, document_id: str, query_text: str, n_results: int = 5) -> list[str]:
-        """Retrieve top-N semantically relevant chunks for a document."""
-        if not self._available:
-            return []
-        try:
-            # Guard: ChromaDB errors if n_results > stored count
-            count = self._collection.count()
-            safe_n = max(1, min(n_results, count))
-            query_embedding = self.embed(query_text)
-            results = self._collection.query(
-                query_embeddings=[query_embedding],
-                n_results=safe_n,
-                where={"document_id": document_id},
+            response = await self._client.embeddings.create(
+                model=settings.EMBEDDING_MODEL,
+                input=[query, *chunks],
             )
-            return results["documents"][0] if results["documents"] else []
+            vectors = [item.embedding for item in response.data]
+            query_vec = vectors[0]
+            chunk_vecs = vectors[1:]
+            scores = [_cosine_similarity(query_vec, vector) for vector in chunk_vecs]
+            return self._rank_by_score(query, chunks, scores, top_n)
         except Exception as exc:
-            logger.warning("ChromaDB query failed: %s", exc)
-            return []
+            logger.warning("Embedding API failed, using lexical fallback: %s", exc)
+            scores = [self._lexical_score(query, chunk) for chunk in chunks]
+            return self._rank_by_score(query, chunks, scores, top_n)
 
-    # ── Retrieve + Rerank ──────────────────────────────────────────────────
+    async def retrieve_many(self, queries: dict[str, str], chunks: list[str], top_n: int = 4) -> dict[str, list[str]]:
+        if not chunks:
+            return {key: [] for key in queries}
 
-    def retrieve_and_rerank(
-        self,
-        document_id: str,
-        query: str,
-        top_k: int = 10,
-        top_n: int = 3,
-    ) -> list[str]:
-        """
-        Full retrieval pipeline for one query:
-          1. Vector search  → top_k candidates (ChromaDB cosine similarity)
-          2. BM25 rescore   → keyword relevance score per candidate
-          3. RRF fusion     → combine vector rank + BM25 rank
-          4. Return top_n   → best chunks for the LLM
+        top_n = max(1, min(top_n, len(chunks)))
+        if not self._available or self._client is None:
+            return {
+                key: await self.retrieve(query, chunks, top_n=top_n)
+                for key, query in queries.items()
+            }
 
-        Falls back to plain vector search if BM25 unavailable.
-        """
-        if not self._available:
-            return []
+        try:
+            response = await self._client.embeddings.create(
+                model=settings.EMBEDDING_MODEL,
+                input=[*queries.values(), *chunks],
+            )
+            vectors = [item.embedding for item in response.data]
+            query_vectors = vectors[: len(queries)]
+            chunk_vectors = vectors[len(queries):]
+            result: dict[str, list[str]] = {}
+            for (key, query_vec) in zip(queries.keys(), query_vectors):
+                scores = [_cosine_similarity(query_vec, vector) for vector in chunk_vectors]
+                ranked = sorted(range(len(chunks)), key=lambda index: scores[index], reverse=True)
+                selected = [chunks[index] for index in ranked[:top_n] if chunks[index].strip()]
+                result[key] = selected or select_chunks(chunks, n=top_n)
+            return result
+        except Exception as exc:
+            logger.warning("Batch embedding API failed, using lexical fallback: %s", exc)
+            return {
+                key: await self.retrieve(query, chunks, top_n=top_n)
+                for key, query in queries.items()
+            }
 
-        candidates = self.query(document_id, query, n_results=top_k)
-        if not candidates:
-            return []
-        if len(candidates) <= top_n:
-            return candidates
 
-        if not _BM25_AVAILABLE:
-            # No BM25 — return top_n from vector search directly
-            return candidates[:top_n]
-
-        # BM25 score — tokenise candidates and query
-        tokenised = [doc.lower().split() for doc in candidates]
-        bm25 = BM25Okapi(tokenised)
-        bm25_scores = bm25.get_scores(query.lower().split())
-
-        # BM25 rank order (highest score = rank 1)
-        bm25_order = sorted(range(len(candidates)), key=lambda i: bm25_scores[i], reverse=True)
-        bm25_rank  = {idx: rank + 1 for rank, idx in enumerate(bm25_order)}
-
-        # Vector rank is simply the ChromaDB return order (index 0 = most similar)
-        vector_rank = {i: i + 1 for i in range(len(candidates))}
-
-        # RRF fusion score — higher is better
-        rrf = {
-            i: 1 / (_RRF_K + vector_rank[i]) + 1 / (_RRF_K + bm25_rank[i])
-            for i in range(len(candidates))
-        }
-        ranked = sorted(rrf, key=lambda i: rrf[i], reverse=True)
-        return [candidates[i] for i in ranked[:top_n]]
-
-    # ── Delete ─────────────────────────────────────────────────────────────
-
-    def delete_document(self, document_id: str) -> None:
-        """Remove all chunks for a document from ChromaDB."""
-        if not self._available:
-            return
-        self._collection.delete(where={"document_id": document_id})
-        logger.info("Deleted embeddings for document %s", document_id)
+def _cosine_similarity(left: list[float], right: list[float]) -> float:
+    if not left or not right:
+        return 0.0
+    numerator = sum(a * b for a, b in zip(left, right))
+    left_norm = math.sqrt(sum(a * a for a in left))
+    right_norm = math.sqrt(sum(b * b for b in right))
+    if left_norm == 0.0 or right_norm == 0.0:
+        return 0.0
+    return numerator / (left_norm * right_norm)

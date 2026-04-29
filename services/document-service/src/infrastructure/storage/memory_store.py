@@ -10,11 +10,14 @@ lifetime of the process (one uvicorn instance).
 
 from __future__ import annotations
 
+from pathlib import Path
+import tempfile
 import threading
 from copy import deepcopy
 from typing import Any
 
 _lock = threading.Lock()
+_BLOB_ROOT = Path(tempfile.gettempdir()) / "rambot-document-service" / "blobs"
 
 # Tables: { table_name: { row_id: row_dict } }
 _tables: dict[str, dict[str, dict]] = {
@@ -22,8 +25,8 @@ _tables: dict[str, dict[str, dict]] = {
     "analyses":  {},
 }
 
-# Object storage: { bucket/path: bytes }
-_blobs: dict[str, bytes] = {}
+# Object storage: { bucket/path: filesystem_path }
+_blobs: dict[str, str] = {}
 
 
 # ── Public helpers ─────────────────────────────────────────────────────────────
@@ -62,18 +65,30 @@ def table_delete(table: str, filters: dict[str, Any]) -> None:
 
 
 def blob_put(path: str, data: bytes) -> None:
+    blob_path = _BLOB_ROOT / path
+    blob_path.parent.mkdir(parents=True, exist_ok=True)
     with _lock:
-        _blobs[path] = data
+        blob_path.write_bytes(data)
+        _blobs[path] = str(blob_path)
 
 
-def blob_get(path: str) -> bytes | None:
+def blob_get(path: str) -> str | None:
     with _lock:
-        return _blobs.get(path)
+        stored = _blobs.get(path)
+        if stored:
+            return stored
+    blob_path = _BLOB_ROOT / path
+    return str(blob_path) if blob_path.exists() else None
 
 
 def blob_delete(path: str) -> None:
     with _lock:
-        _blobs.pop(path, None)
+        stored = _blobs.pop(path, None)
+    blob_path = Path(stored) if stored else _BLOB_ROOT / path
+    try:
+        blob_path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def purge_old_records(max_age_seconds: int = 3600) -> None:
@@ -87,7 +102,13 @@ def purge_old_records(max_age_seconds: int = 3600) -> None:
         ]
         for rid in stale_ids:
             doc = _tables["documents"].pop(rid, {})
-            _blobs.pop(doc.get("storage_path", ""), None)
+            storage_path = doc.get("storage_path", "")
+            stored = _blobs.pop(storage_path, None)
+            blob_path = Path(stored) if stored else _BLOB_ROOT / storage_path
+            try:
+                blob_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         doc_ids = {rid for rid in stale_ids}
         _tables["analyses"] = {
             rid: row for rid, row in _tables.get("analyses", {}).items()

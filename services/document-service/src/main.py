@@ -1,5 +1,7 @@
 """Document Service — FastAPI Application."""
 
+import gc
+import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -21,22 +23,17 @@ from src.core.exceptions import (
 from src.core.security import decode_token
 from src.services.analysis_svc import AnalysisService, extract_text_from_pdf, run_ai_pipeline
 from src.services.document_svc import DocumentService
-from src.services.file_validator import validate_pdf
+from src.services.file_validator import validate_pdf_header
 from src.infrastructure.storage.memory_store import table_update, blob_get, blob_delete, purge_old_records
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mode = "DEV (no auth)" if settings.SKIP_AUTH else "PROD"
-    print(f"[Document Service] Starting — mode: {mode} | max upload: {settings.MAX_FILE_SIZE_BYTES // (1024*1024)} MB")
-    # Pre-warm the embedding model so the first real request isn't slow
-    try:
-        import asyncio
-        from src.ai.embeddings import get_embedding_service
-        await asyncio.to_thread(get_embedding_service)
-        print("[Document Service] Embedding model warm ✓")
-    except Exception as exc:
-        print(f"[Document Service] Embedding warm-up skipped: {exc}")
+    print(
+        f"[Document Service] Starting — mode: {mode} | "
+        f"max upload: {settings.MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB"
+    )
     yield
     print("[Document Service] Shutting down")
 
@@ -47,9 +44,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+_cors_origins = [origin.strip() for origin in settings.CORS_ALLOW_ORIGINS.split(",") if origin.strip()]
+if not _cors_origins:
+    _cors_origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -89,13 +90,13 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
     try:
         table_update("documents", {"status": "processing"}, {"id": document_id})
 
-        pdf_bytes = blob_get(storage_path)
-        if not pdf_bytes:
-            raise ValueError("PDF bytes not found in store")
+        pdf_path = blob_get(storage_path)
+        if not pdf_path:
+            raise ValueError("PDF path not found in store")
 
-        text = await extract_text_from_pdf(pdf_bytes)
+        text = await extract_text_from_pdf(pdf_path)
 
-        # Free PDF bytes from RAM immediately — no longer needed
+        # Free stored PDF immediately after extraction.
         blob_delete(storage_path)
 
         if not text.strip():
@@ -108,32 +109,36 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
 
         table_update("documents", {"status": "done"}, {"id": document_id})
 
-        # Free ChromaDB embeddings — retrieval is done, no further use
-        try:
-            from src.ai.embeddings import get_embedding_service
-            get_embedding_service().delete_document(document_id)
-        except Exception:
-            pass
-
         # Purge any records older than 1 hour to cap long-running memory growth
         purge_old_records(max_age_seconds=3600)
+        del text
+        gc.collect()
 
     except Exception as exc:
         print(f"[Pipeline] FAILED for {document_id}: {exc}")
         blob_delete(storage_path)   # always free the blob even on failure
         table_update("documents", {"status": "failed"}, {"id": document_id})
+        gc.collect()
 
 
 # ── Health ─────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
+    llm_model = {
+        "groq": settings.GROQ_MODEL,
+        "ollama": settings.OLLAMA_MODEL,
+        "nvidia": settings.NVIDIA_MODEL,
+        "cerebras": settings.CEREBRAS_MODEL,
+    }.get(settings.LLM_PROVIDER, "mock")
+    embedding_provider = "openai" if settings.OPENAI_API_KEY and settings.EMBEDDING_PROVIDER in {"api", "openai"} else "lexical"
     return {
         "status": "ok",
         "service": settings.SERVICE_NAME,
         "skip_auth": settings.SKIP_AUTH,
         "llm_provider": settings.LLM_PROVIDER,
-        "llm_model": settings.GROQ_MODEL if settings.LLM_PROVIDER == "groq" else settings.OLLAMA_MODEL,
+        "llm_model": llm_model,
+        "embedding_provider": embedding_provider,
     }
 
 
@@ -163,7 +168,7 @@ _PRIVACY_HTML = """<!DOCTYPE html>
 <h1>Privacy Policy</h1>
 <p class="meta">RamVector &mdash; Last updated: April 29, 2026</p>
 
-<p>RamVector (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) is committed to protecting your privacy.
+  <p>RamVector (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) is committed to protecting your privacy.
 This policy explains what data the RamVector mobile app collects, how it is used, and who it is shared with.</p>
 
 <h2>1. Data We Collect</h2>
@@ -190,12 +195,14 @@ This policy explains what data the RamVector mobile app collects, how it is used
   <a href="https://groq.com/privacy-policy/" target="_blank">Privacy Policy</a>.</p>
   <p>By using RamVector and accepting this policy, you consent to your document text being sent to Groq for processing.</p>
 </div>
+<p>When embedding-based retrieval is enabled in production, chunks of your document text may also be sent to OpenAI to compute embeddings for ranking and retrieval.</p>
 <p>We do not sell, rent, or share your data with any other third parties.</p>
 
 <h2>4. Data Retention</h2>
 <ul>
   <li>Documents are processed in memory and are <strong>not stored permanently</strong> on our servers.</li>
   <li>Analysis results are held temporarily in server memory and are lost when the service restarts.</li>
+  <li>Uploaded PDFs are stored on ephemeral disk only long enough for extraction and are deleted immediately after processing.</li>
   <li>Groq's data retention is governed by <a href="https://groq.com/privacy-policy/" target="_blank">Groq's Privacy Policy</a>.</li>
 </ul>
 
@@ -233,9 +240,30 @@ async def upload_document(
     file: UploadFile = File(...),
     user: CurrentUser = None,
 ):
-    content = await file.read()
+    original_name = file.filename or "upload.pdf"
     try:
-        validate_pdf(content, file.filename or "upload.pdf", len(content))
+        file.file.seek(0, os.SEEK_END)
+        declared_size = file.file.tell()
+        file.file.seek(0)
+    except Exception:
+        declared_size = 0
+
+    if declared_size == 0:
+        raise HTTPException(status_code=400, detail={"code": "EMPTY_FILE", "message": "Uploaded file is empty."})
+    if declared_size > settings.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "FILE_TOO_LARGE",
+                "message": "Uploaded file exceeds the maximum size limit.",
+                "max_size_mb": settings.MAX_FILE_SIZE_BYTES // (1024 * 1024),
+            },
+        )
+
+    try:
+        header = file.file.read(4)
+        file.file.seek(0)
+        validate_pdf_header(header, original_name, declared_size)
     except EmptyFileError as exc:
         raise HTTPException(status_code=400, detail={"code": "EMPTY_FILE", "message": exc.message})
     except FileTooLargeError as exc:
@@ -246,17 +274,21 @@ async def upload_document(
     except InvalidFileTypeError as exc:
         raise HTTPException(status_code=415, detail={"code": "INVALID_FILE_TYPE", "message": exc.message})
 
+    content = await file.read()
     svc = DocumentService()
     doc = await svc.upload_document(
         user_id=user["sub"],
         file_bytes=content,
-        filename=file.filename or "upload.pdf",
-        file_size=len(content),
+        filename=original_name,
+        file_size=declared_size,
     )
 
     # Kick off AI pipeline in the background (non-blocking)
     if doc.get("status") == "pending":
         background_tasks.add_task(_run_pipeline_bg, doc["id"], doc["storage_path"])
+
+    del content
+    gc.collect()
 
     return doc
 

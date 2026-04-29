@@ -26,10 +26,9 @@ from src.core.exceptions import EmptyDocumentError
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONCURRENT_LLM_CALLS = 4
+_MAX_CONCURRENT_LLM_CALLS = 2
 _EMBED_TIMEOUT  = 5    # seconds — skip embedding if it takes longer
 _CHAIN_TIMEOUT  = 22   # seconds per chain — return partial if exceeded
-_TOP_K = 10
 _TOP_N = 3
 
 _QUERY_SUMMARY  = "executive summary main purpose key findings conclusions overview"
@@ -132,7 +131,7 @@ async def _with_timeout(coro, seconds: float, name: str):
 async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
     """
     Embed + retrieve with a 5s budget.
-    If embedding takes too long, falls back to positional select_chunks.
+    If embeddings are unavailable or too slow, falls back to positional select_chunks.
     """
     fallback = (
         select_chunks(chunks, n=4),
@@ -141,11 +140,10 @@ async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
         select_chunks(chunks, n=4),
     )
     try:
-        result = await asyncio.wait_for(
-            asyncio.to_thread(_embed_and_retrieve, document_id, chunks),
+        return await asyncio.wait_for(
+            _embed_and_retrieve(document_id, chunks),
             timeout=_EMBED_TIMEOUT,
         )
-        return result
     except asyncio.TimeoutError:
         logger.warning("document=%s  embedding timed out — using positional fallback", document_id)
         return fallback
@@ -154,26 +152,29 @@ async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
         return fallback
 
 
-def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
+async def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
     from src.ai.embeddings import get_embedding_service
 
     fallback = select_chunks(chunks, n=4)
 
     try:
         svc = get_embedding_service()
-        if not svc._available:
-            return fallback, fallback, fallback, fallback
-
-        svc.upsert_chunks(document_id, chunks)
-
-        top_k = min(_TOP_K, len(chunks))
         top_n = min(_TOP_N, len(chunks))
-
+        ranked = await svc.retrieve_many(
+            {
+                "summary": _QUERY_SUMMARY,
+                "snapshot": _QUERY_SNAPSHOT,
+                "extract": _QUERY_EXTRACT,
+                "workflow": _QUERY_WORKFLOW,
+            },
+            chunks,
+            top_n=top_n,
+        )
         return (
-            svc.retrieve_and_rerank(document_id, _QUERY_SUMMARY,  top_k=top_k, top_n=top_n) or fallback,
-            svc.retrieve_and_rerank(document_id, _QUERY_SNAPSHOT, top_k=top_k, top_n=top_n) or fallback,
-            svc.retrieve_and_rerank(document_id, _QUERY_EXTRACT,  top_k=top_k, top_n=top_n) or fallback,
-            svc.retrieve_and_rerank(document_id, _QUERY_WORKFLOW, top_k=top_k, top_n=top_n) or fallback,
+            ranked.get("summary", fallback) or fallback,
+            ranked.get("snapshot", fallback) or fallback,
+            ranked.get("extract", fallback) or fallback,
+            ranked.get("workflow", fallback) or fallback,
         )
     except Exception as exc:
         logger.warning("Retrieval failed for %s: %s — fallback", document_id, exc)

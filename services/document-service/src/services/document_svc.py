@@ -3,6 +3,7 @@
 import hashlib
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from src.infrastructure.storage.memory_store import (
@@ -29,6 +30,8 @@ class DocumentService:
         Upload a document. Returns existing record if content was already seen
         (SHA-256 content-hash deduplication).
         """
+        user_id = user_id.replace("\\", "_").replace("/", "_")
+        filename = Path(filename).name or "upload.pdf"
         content_hash = hashlib.sha256(file_bytes).hexdigest()
 
         # Deduplication: same content already uploaded by this user?

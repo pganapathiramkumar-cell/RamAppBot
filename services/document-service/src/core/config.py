@@ -6,8 +6,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     SERVICE_NAME: str = "document-service"
     HOST: str = "0.0.0.0"
-    PORT: int = 8006
+    PORT: int = 10000
     ENVIRONMENT: str = "development"
+
+    # CORS
+    CORS_ALLOW_ORIGINS: str = "*"
 
     # Security
     SUPABASE_JWT_SECRET: str = "test_secret_for_ci_only"
@@ -20,6 +23,11 @@ class Settings(BaseSettings):
     # Groq cloud — https://console.groq.com (free tier, Llama 3 models)
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.1-8b-instant"
+
+    # Embeddings — OpenAI API is the lowest-RAM option for Render
+    OPENAI_API_KEY: str = ""
+    EMBEDDING_PROVIDER: str = "openai"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # NVIDIA NIM — https://build.nvidia.com (free credits, OpenAI-compatible)
     NVIDIA_API_KEY: str = ""

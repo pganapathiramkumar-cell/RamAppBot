@@ -1,0 +1,68 @@
+General Information
+App Name
+RamVector
+Binary State
+Validated
+Bundle Short Version String
+1.0.0
+Upload Date
+Apr 29, 2026 at 6:03 AM
+Build SDK
+23A339
+Bundle Version String
+11
+Original File Name
+c34ac0ab-3bee-4834-8939-80c485142d75.ipa
+Build Platform
+23A339
+Bundle ID
+com.ramkumar.ramvectorapp
+Compressed File Size
+14.1 MB | App File Sizes
+On Demand Resources
+No
+Includes Symbols
+Yes
+App Uses Non-Exempt Encryption
+No
+SiriKit
+No
+Watch-Only App
+No
+iMessage App
+Includes iMessage App
+No
+Includes Stickers
+No
+App Icon Hidden
+No
+Device Requirements
+Minimum iOS Version
+15.1
+Minimum macOS Version
+12.0
+Minimum visionOS Version
+1.0
+LS Minimum System Version
+12.0
+Supported Architectures
+arm64
+Device Protocols
+-
+Device Family
+iPhone, iPad
+Required Capabilities
+arm64
+Store Information
+Localizations
+English
+Entitlements
+RamVector.app/RamVector
+    application-identifier: DLB7NVBJG4.com.ramkumar.ramvectorapp
+    get-task-allow: false
+    beta-reports-active: true
+    com.apple.developer.team-identifier: DLB7NVBJG4
+Newsstand App
+No
+Prerendered Icon Flag
+Yes
