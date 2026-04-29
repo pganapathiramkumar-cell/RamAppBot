@@ -1,92 +1,208 @@
 """
-Unit tests: EmbeddingService + ChromaDB vector store
+Unit tests: EmbeddingService (httpx + lexical fallback implementation)
 Blueprint refs: AI-EMB-001 → AI-EMB-004
-Uses an in-memory (tmp) ChromaDB instance — no real DB or API calls.
+
+The embedding layer was rewritten to use httpx directly (no local model, no ChromaDB).
+These tests verify:
+  - lexical scoring correctness
+  - retrieve() / retrieve_many() ranking behaviour
+  - API path via a mocked _embed_via_api
+  - graceful fallback when API fails
 """
 
-import tempfile
-import pytest
+from __future__ import annotations
 
-from src.ai.embeddings import EmbeddingService, _EMBEDDING_DIM
+import math
+import pytest
+from unittest.mock import AsyncMock, patch
+
+from src.ai.embeddings import EmbeddingService, _cosine
+
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+CHUNKS = [
+    "The contract establishes obligations for the supplier.",
+    "Payment terms are due within 30 days of invoice.",
+    "The agreement covers software licensing and support.",
+    "Termination clauses are detailed in section 8.",
+    "Confidentiality obligations apply for 5 years post-termination.",
+]
+
+UNRELATED = [
+    "Chocolate cake recipe requires flour and eggs.",
+    "The weather forecast shows rain tomorrow.",
+]
 
 
 @pytest.fixture
-def svc(tmp_path):
-    """EmbeddingService with a temp ChromaDB path — isolated per test."""
-    return EmbeddingService(persist_path=str(tmp_path))
+def svc_lexical():
+    """EmbeddingService with no API key — always uses lexical scoring."""
+    svc = EmbeddingService.__new__(EmbeddingService)
+    svc._available = False
+    return svc
 
 
-class TestEmbeddingDimensionality:
-    """AI-EMB-001: Verify embedding vector dimensions."""
-
-    def test_ai_emb_001_single_embed_has_384_dims(self, svc):
-        """all-MiniLM-L6-v2 always produces 384-dimensional float vectors."""
-        vec = svc.embed("Hello world")
-        assert len(vec) == _EMBEDDING_DIM
-
-    def test_ai_emb_001_batch_embed_all_have_384_dims(self, svc):
-        """Batch embedding returns correct dimensions for every vector."""
-        texts = ["Document A", "Document B", "Document C"]
-        vecs = svc.embed_batch(texts)
-        assert len(vecs) == 3
-        assert all(len(v) == _EMBEDDING_DIM for v in vecs)
-
-    def test_ai_emb_001_empty_batch_returns_empty_list(self, svc):
-        result = svc.embed_batch([])
-        assert result == [] or result is not None  # model behaviour may vary
+@pytest.fixture
+def svc_api():
+    """EmbeddingService configured for API mode."""
+    svc = EmbeddingService.__new__(EmbeddingService)
+    svc._available = True
+    return svc
 
 
-class TestEmbeddingDeterminism:
-    """AI-EMB-002: Same text → same embedding (cosine similarity = 1.0)."""
+# ── AI-EMB-001: Lexical scoring ───────────────────────────────────────────────
 
-    def test_ai_emb_002_same_text_same_vector(self, svc):
-        """Embedding the same string twice produces identical vectors."""
-        vec_a = svc.embed("identical text input")
-        vec_b = svc.embed("identical text input")
-        assert vec_a == pytest.approx(vec_b, abs=1e-5)
+class TestLexicalScoring:
+    """AI-EMB-001: Lexical scorer produces meaningful relevance scores."""
 
-    def test_ai_emb_002_different_texts_different_vectors(self, svc):
-        """Different inputs should not produce identical vectors."""
-        vec_a = svc.embed("contract about software licencing")
-        vec_b = svc.embed("recipe for chocolate cake")
-        assert vec_a != pytest.approx(vec_b, abs=1e-3)
+    def test_exact_term_match_scores_higher_than_no_match(self, svc_lexical):
+        relevant = "contract obligations supplier"
+        noise    = "chocolate cake flour recipe"
+        score_rel = svc_lexical._lexical_score("contract supplier", relevant)
+        score_noi = svc_lexical._lexical_score("contract supplier", noise)
+        assert score_rel > score_noi
+
+    def test_empty_query_returns_zero(self, svc_lexical):
+        assert svc_lexical._lexical_score("", "some chunk content") == 0.0
+
+    def test_empty_chunk_returns_zero(self, svc_lexical):
+        assert svc_lexical._lexical_score("query terms", "") == 0.0
+
+    def test_score_is_non_negative(self, svc_lexical):
+        score = svc_lexical._lexical_score("some query", "some chunk text")
+        assert score >= 0.0
+
+    def test_repeated_terms_handled(self, svc_lexical):
+        score = svc_lexical._lexical_score("contract contract contract", "contract")
+        assert score >= 0.0
 
 
-class TestChromaDBIsolation:
-    """AI-EMB-003 & AI-EMB-004: Vector store isolation and deletion."""
+# ── AI-EMB-002: retrieve() – lexical mode ────────────────────────────────────
 
-    def test_ai_emb_003_query_returns_only_doc_a_chunks(self, svc):
-        """Querying with document_id filter returns only that document's chunks."""
-        doc_a_chunks = [f"Chunk {i} from doc A" for i in range(5)]
-        doc_b_chunks = [f"Chunk {i} from doc B" for i in range(5)]
-        svc.upsert_chunks("doc-A", doc_a_chunks)
-        svc.upsert_chunks("doc-B", doc_b_chunks)
+class TestRetrieveLexical:
+    """AI-EMB-002: retrieve() returns top-N most relevant chunks (lexical)."""
 
-        results = svc.query("doc-A", "content from A", n_results=5)
-        # All returned chunks must belong to doc-A
-        for chunk in results:
-            assert "doc A" in chunk
+    @pytest.mark.asyncio
+    async def test_returns_top_n_chunks(self, svc_lexical):
+        result = await svc_lexical.retrieve("contract obligations", CHUNKS, top_n=2)
+        assert len(result) == 2
 
-    def test_ai_emb_003_doc_b_query_does_not_return_doc_a_chunks(self, svc):
-        """Doc-B queries must not leak Doc-A content."""
-        svc.upsert_chunks("doc-A", ["Exclusive secret from doc A"])
-        svc.upsert_chunks("doc-B", [f"Normal content {i}" for i in range(5)])
+    @pytest.mark.asyncio
+    async def test_relevant_chunk_ranked_first(self, svc_lexical):
+        result = await svc_lexical.retrieve("termination clause section", CHUNKS, top_n=1)
+        assert "termination" in result[0].lower() or "clause" in result[0].lower()
 
-        results = svc.query("doc-B", "content", n_results=5)
-        for chunk in results:
-            assert "secret from doc A" not in chunk
+    @pytest.mark.asyncio
+    async def test_empty_chunks_returns_empty(self, svc_lexical):
+        result = await svc_lexical.retrieve("query", [], top_n=3)
+        assert result == []
 
-    def test_ai_emb_004_delete_removes_all_doc_chunks(self, svc):
-        """After delete_document, querying that document_id returns no results."""
-        svc.upsert_chunks("doc-X", [f"Content chunk {i}" for i in range(5)])
-        svc.delete_document("doc-X")
-        results = svc.query("doc-X", "content", n_results=5)
-        assert results == []
+    @pytest.mark.asyncio
+    async def test_top_n_capped_at_chunk_count(self, svc_lexical):
+        result = await svc_lexical.retrieve("query", ["only one chunk"], top_n=10)
+        assert len(result) == 1
 
-    def test_ai_emb_004_deleting_doc_a_leaves_doc_b_intact(self, svc):
-        """Deleting doc-A must not affect doc-B's chunks."""
-        svc.upsert_chunks("doc-A", ["Doc A content"])
-        svc.upsert_chunks("doc-B", ["Doc B content", "More doc B content"])
-        svc.delete_document("doc-A")
-        results = svc.query("doc-B", "doc B", n_results=5)
-        assert len(results) >= 1
+    @pytest.mark.asyncio
+    async def test_top_n_minimum_one(self, svc_lexical):
+        result = await svc_lexical.retrieve("query", CHUNKS, top_n=0)
+        assert len(result) >= 1
+
+
+# ── AI-EMB-003: retrieve_many() – lexical mode ───────────────────────────────
+
+class TestRetrieveManyLexical:
+    """AI-EMB-003: retrieve_many() returns per-query ranked chunk sets."""
+
+    @pytest.mark.asyncio
+    async def test_returns_all_query_keys(self, svc_lexical):
+        queries = {"summary": "overview", "extract": "names dates"}
+        result = await svc_lexical.retrieve_many(queries, CHUNKS, top_n=2)
+        assert set(result.keys()) == set(queries.keys())
+
+    @pytest.mark.asyncio
+    async def test_each_value_is_list(self, svc_lexical):
+        queries = {"a": "contract", "b": "payment terms"}
+        result = await svc_lexical.retrieve_many(queries, CHUNKS, top_n=3)
+        for v in result.values():
+            assert isinstance(v, list)
+            assert len(v) <= 3
+
+    @pytest.mark.asyncio
+    async def test_empty_chunks_returns_empty_lists(self, svc_lexical):
+        queries = {"x": "query"}
+        result = await svc_lexical.retrieve_many(queries, [], top_n=3)
+        assert result == {"x": []}
+
+
+# ── AI-EMB-004: API path – mocked ────────────────────────────────────────────
+
+class TestRetrieveAPIPath:
+    """AI-EMB-004: API mode uses _embed_via_api and cosine similarity ranking."""
+
+    def _unit_vec(self, dim: int, hot: int) -> list[float]:
+        v = [0.0] * dim
+        v[hot] = 1.0
+        return v
+
+    @pytest.mark.asyncio
+    async def test_api_retrieve_uses_cosine_ranking(self, svc_api):
+        """Most similar chunk (cosine = 1.0) should rank first."""
+        dim = 4
+        # query vector at index 0, two chunks: one matching, one orthogonal
+        vectors = [
+            self._unit_vec(dim, 0),  # query
+            self._unit_vec(dim, 0),  # chunk 0 — identical to query (cosine=1)
+            self._unit_vec(dim, 1),  # chunk 1 — orthogonal (cosine=0)
+        ]
+        chunks = ["contract clause obligations", "chocolate cake recipe"]
+
+        with patch.object(svc_api, "_embed_via_api", new=AsyncMock(return_value=vectors)):
+            result = await svc_api.retrieve("contract", chunks, top_n=1)
+
+        assert result[0] == "contract clause obligations"
+
+    @pytest.mark.asyncio
+    async def test_api_failure_falls_back_to_lexical(self, svc_api):
+        """API errors must gracefully fall back to lexical scoring."""
+        with patch.object(
+            svc_api, "_embed_via_api", side_effect=Exception("network error")
+        ):
+            result = await svc_api.retrieve("termination clause", CHUNKS, top_n=2)
+
+        assert len(result) == 2
+        assert all(isinstance(c, str) for c in result)
+
+    @pytest.mark.asyncio
+    async def test_api_retrieve_many_failure_falls_back(self, svc_api):
+        """Batch API failure falls back to per-query lexical scoring."""
+        queries = {"sum": "payment terms", "wf": "termination clause"}
+        with patch.object(
+            svc_api, "_embed_via_api", side_effect=Exception("timeout")
+        ):
+            result = await svc_api.retrieve_many(queries, CHUNKS, top_n=2)
+
+        assert set(result.keys()) == set(queries.keys())
+        for v in result.values():
+            assert isinstance(v, list)
+
+
+# ── AI-EMB-005: Cosine similarity helper ─────────────────────────────────────
+
+class TestCosine:
+    """AI-EMB-005: _cosine() correctness."""
+
+    def test_identical_vectors_return_one(self):
+        v = [1.0, 0.0, 0.0]
+        assert _cosine(v, v) == pytest.approx(1.0, abs=1e-6)
+
+    def test_orthogonal_vectors_return_zero(self):
+        a = [1.0, 0.0]
+        b = [0.0, 1.0]
+        assert _cosine(a, b) == pytest.approx(0.0, abs=1e-6)
+
+    def test_zero_vector_returns_zero(self):
+        assert _cosine([0.0, 0.0], [1.0, 0.0]) == 0.0
+
+    def test_empty_input_returns_zero(self):
+        assert _cosine([], []) == 0.0

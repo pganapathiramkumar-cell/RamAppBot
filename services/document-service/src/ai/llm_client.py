@@ -1,27 +1,24 @@
 """
-LLM client with automatic provider fallback chain.
+LLM client — pure httpx calls to OpenAI-compatible REST APIs.
 
-Priority order:  Groq → NVIDIA NIM → Cerebras → Mock
-Each provider is tried in order. If one hits a rate limit or is not
-configured, the next one is used automatically.
+Replacing the openai + groq SDKs with direct httpx saves ~100 MB on Render's
+512 MB plan. All three provider APIs share the same OpenAI-compatible JSON
+schema, so a single generic caller covers all of them.
 
-Provider env vars:
-  LLM_PROVIDER   — (optional) force a specific provider; leave blank for auto
-  GROQ_API_KEY   — Groq cloud (100K tokens/day, resets daily)
-  NVIDIA_API_KEY — NVIDIA NIM (1K free API calls, one-time)
-  CEREBRAS_API_KEY — Cerebras cloud (1M tokens/month, resets monthly)
+Fallback order: Groq → NVIDIA NIM → Cerebras → Mock
 """
 
-import asyncio
+from __future__ import annotations
+
 import json
 import re
+from collections import Counter
+
+import httpx
 
 from src.core.config import settings
 
-_MAX_RETRIES = 2
-_RETRY_DELAY = 1.0
-
-# HTTP status codes that mean "rate limited / quota exceeded" — trigger fallback
+_REQUEST_TIMEOUT = 30.0
 _RATE_LIMIT_CODES = {429, 529}
 
 
@@ -31,10 +28,10 @@ class LLMResponse:
 
 
 class RateLimitError(Exception):
-    """Raised when a provider is rate-limited so the fallback chain can continue."""
+    """Raised on 429/529 so the fallback chain can continue."""
 
 
-# ── Smart mock (CI / all-providers-exhausted fallback) ────────────────────────
+# ── Smart mock (no API, regex + heuristics) ───────────────────────────────────
 
 def _sentences(text: str, n: int = 5) -> list[str]:
     raw = re.split(r'(?<=[.!?])\s+', text.strip())
@@ -58,18 +55,23 @@ def _mock_entities(text: str) -> str:
     )
     dates = list(dict.fromkeys(date_pat.findall(text)))[:6]
     name_pat = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
-    from collections import Counter
     freq = Counter(name_pat.findall(text))
     names = [n for n, _ in freq.most_common(8) if len(n) > 3][:6]
     clause_kw = re.compile(r'\b(clause|provision|agreement|terms?|conditions?|liability|obligation|warranty|indemnif|termination)\b', re.I)
     task_kw   = re.compile(r'\b(shall|must|will|should|required to|responsible for|needs? to|ensure)\b', re.I)
     risk_kw   = re.compile(r'\b(risk|liability|penalty|breach|violat|fail|damage|loss|dispute|delay)\b', re.I)
-    clauses, tasks, risks = [], [], []
+    clauses: list[str] = []
+    tasks: list[str]   = []
+    risks: list[str]   = []
     for s in _sentences(text, 30):
-        if clause_kw.search(s) and s[:100] not in clauses: clauses.append(s[:100])
-        if task_kw.search(s)   and s[:100] not in tasks:   tasks.append(s[:100])
-        if risk_kw.search(s)   and s[:100] not in risks:   risks.append(s[:100])
-        if len(clauses) >= 4 and len(tasks) >= 5 and len(risks) >= 4: break
+        if clause_kw.search(s) and s[:100] not in clauses:
+            clauses.append(s[:100])
+        if task_kw.search(s) and s[:100] not in tasks:
+            tasks.append(s[:100])
+        if risk_kw.search(s) and s[:100] not in risks:
+            risks.append(s[:100])
+        if len(clauses) >= 4 and len(tasks) >= 5 and len(risks) >= 4:
+            break
     return json.dumps({
         "names":   names   or ["(none identified)"],
         "dates":   dates   or ["(none identified)"],
@@ -87,11 +89,7 @@ def _smart_mock(system: str, prompt: str) -> str:
             "secondary_topics": ["key points", "entities", "workflow"],
             "key_ideas": _sentences(prompt, 4),
             "important_entities": {
-                "tools": [],
-                "systems": [],
-                "metrics": [],
-                "people": [],
-                "organizations": [],
+                "tools": [], "systems": [], "metrics": [], "people": [], "organizations": [],
             },
             "relationships": [],
             "key_concepts": ["document", "summary"],
@@ -101,94 +99,91 @@ def _smart_mock(system: str, prompt: str) -> str:
     return _mock_summary(prompt)
 
 
-# ── Individual provider callers ────────────────────────────────────────────────
+# ── Generic OpenAI-compatible caller ─────────────────────────────────────────
+
+async def _call_openai_compat(
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+) -> str:
+    """POST to any OpenAI-compatible /chat/completions endpoint via httpx."""
+    async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+        resp = await client.post(
+            f"{base_url.rstrip('/')}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "temperature": 0.1,
+                "max_tokens": max_tokens,
+            },
+        )
+    if resp.status_code in _RATE_LIMIT_CODES:
+        raise RateLimitError(f"Rate limited {resp.status_code}: {resp.text[:200]}")
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"] or ""
+
 
 async def _call_groq(messages: list[dict], model: str, max_tokens: int) -> str:
-    from groq import AsyncGroq, RateLimitError as GroqRateLimit
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-    try:
-        resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
-        )
-        return resp.choices[0].message.content or ""
-    except GroqRateLimit as e:
-        raise RateLimitError(f"Groq rate limited: {e}") from e
-    except Exception as e:
-        if "429" in str(e) or "rate" in str(e).lower():
-            raise RateLimitError(f"Groq rate limited: {e}") from e
-        raise
+    return await _call_openai_compat(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=settings.GROQ_API_KEY,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+    )
 
 
 async def _call_nvidia(messages: list[dict], model: str, max_tokens: int) -> str:
-    from openai import AsyncOpenAI, RateLimitError as OAIRateLimit
-    client = AsyncOpenAI(api_key=settings.NVIDIA_API_KEY, base_url=settings.NVIDIA_BASE_URL)
-    try:
-        resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
-        )
-        return resp.choices[0].message.content or ""
-    except OAIRateLimit as e:
-        raise RateLimitError(f"NVIDIA rate limited: {e}") from e
-    except Exception as e:
-        if "429" in str(e) or "credits" in str(e).lower() or "quota" in str(e).lower():
-            raise RateLimitError(f"NVIDIA quota exceeded: {e}") from e
-        raise
+    return await _call_openai_compat(
+        base_url=settings.NVIDIA_BASE_URL,
+        api_key=settings.NVIDIA_API_KEY,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+    )
 
 
 async def _call_cerebras(messages: list[dict], model: str, max_tokens: int) -> str:
-    from openai import AsyncOpenAI, RateLimitError as OAIRateLimit
-    client = AsyncOpenAI(
-        api_key=settings.CEREBRAS_API_KEY,
+    return await _call_openai_compat(
         base_url="https://api.cerebras.ai/v1",
+        api_key=settings.CEREBRAS_API_KEY,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
     )
-    try:
-        resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
-        )
-        return resp.choices[0].message.content or ""
-    except OAIRateLimit as e:
-        raise RateLimitError(f"Cerebras rate limited: {e}") from e
-    except Exception as e:
-        if "429" in str(e) or "rate" in str(e).lower():
-            raise RateLimitError(f"Cerebras rate limited: {e}") from e
-        raise
 
 
 # ── LLM Client ────────────────────────────────────────────────────────────────
 
 class LLMClient:
     """
-    Async LLM client with automatic fallback chain.
-
-    Order: Groq → NVIDIA NIM → Cerebras → Mock
-    A provider is skipped if its API key is not configured.
-    If a provider returns a rate-limit error, the next one is tried.
+    Async LLM client — direct httpx calls, no SDK packages.
+    Saves ~100 MB vs. importing openai + groq on Render's 512 MB plan.
+    Fallback order: Groq → NVIDIA NIM → Cerebras → Mock
     """
 
-    def __init__(self):
-        # Build the active provider chain based on available keys
+    def __init__(self) -> None:
         self._chain: list[tuple[str, str]] = []
-
         if settings.GROQ_API_KEY:
             self._chain.append(("groq", settings.GROQ_MODEL))
         if settings.NVIDIA_API_KEY:
             self._chain.append(("nvidia", settings.NVIDIA_MODEL))
         if settings.CEREBRAS_API_KEY:
             self._chain.append(("cerebras", settings.CEREBRAS_MODEL))
-
-        # Always append mock as final fallback
         self._chain.append(("mock", "mock"))
-
-        active = [p for p, _ in self._chain]
-        print(f"[LLMClient] Provider chain: {' → '.join(active)}")
+        print(f"[LLMClient] Provider chain: {' → '.join(p for p, _ in self._chain)}")
 
     async def ainvoke(self, prompt: str, system: str = "", max_tokens: int = 1024) -> LLMResponse:
         messages: list[dict] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-
-        last_error: Exception | None = None
 
         for provider, model in self._chain:
             try:
@@ -205,15 +200,10 @@ class LLMClient:
                     print(f"[LLMClient] Used provider: {provider}")
                 return LLMResponse(content=content)
 
-            except RateLimitError as e:
-                print(f"[LLMClient] {provider} rate limited — trying next provider. {e}")
-                last_error = e
-                continue
-            except Exception as e:
-                print(f"[LLMClient] {provider} error: {e} — trying next provider.")
-                last_error = e
-                continue
+            except RateLimitError as exc:
+                print(f"[LLMClient] {provider} rate limited — trying next. {exc}")
+            except Exception as exc:
+                print(f"[LLMClient] {provider} error: {exc} — trying next.")
 
-        # All providers failed — return mock as emergency fallback
         print("[LLMClient] All providers failed — using mock fallback.")
         return LLMResponse(content=_smart_mock(system, prompt))

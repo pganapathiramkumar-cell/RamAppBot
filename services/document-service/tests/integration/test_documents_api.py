@@ -2,11 +2,11 @@
 API integration tests: Document endpoints
 Blueprint refs: API-DOC-001 → API-DOC-006  |  API-RL-001 → API-RL-003
 Uses httpx AsyncClient against the real FastAPI app.
-Supabase and LLM are mocked.
+LLM and storage are mocked.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 
 class TestDocumentUploadAPI:
@@ -23,9 +23,10 @@ class TestDocumentUploadAPI:
             "status": "pending",
             "filename": "contract.pdf",
             "user_id": "user-A",
+            "storage_path": "documents/user-A/doc-abc.pdf",
         }
         with patch("src.main.DocumentService", return_value=mock_svc):
-            with patch("src.main.validate_pdf", return_value=True):
+            with patch("src.main._run_pipeline_bg", new=AsyncMock()):
                 response = await raw_client.post(
                     "/api/v1/documents/upload",
                     files={"file": ("contract.pdf", sample_pdf_bytes, "application/pdf")},
@@ -39,7 +40,7 @@ class TestDocumentUploadAPI:
 
     @pytest.mark.asyncio
     async def test_api_doc_002_no_auth_returns_401(self, raw_client, sample_pdf_bytes):
-        """Missing Authorization header → 401 AUTH_REQUIRED."""
+        """Missing Authorization header → 401 AUTH_REQUIRED (SKIP_AUTH=false in CI)."""
         response = await raw_client.post(
             "/api/v1/documents/upload",
             files={"file": ("test.pdf", sample_pdf_bytes, "application/pdf")},
@@ -89,7 +90,7 @@ class TestDocumentUploadAPI:
     async def test_api_doc_005_user_isolation_only_own_docs_returned(
         self, raw_client, auth_headers_user_a, auth_headers_user_b
     ):
-        """User A can only see their own documents (RLS enforcement test)."""
+        """User A can only see their own documents."""
         user_a_docs = [{"id": "doc-a-1", "user_id": "user-A", "filename": "a.pdf"}]
         user_b_docs = [{"id": "doc-b-1", "user_id": "user-B", "filename": "b.pdf"}]
 
@@ -98,19 +99,21 @@ class TestDocumentUploadAPI:
         mock_svc_b = AsyncMock()
         mock_svc_b.list_documents.return_value = user_b_docs
 
-        with patch("src.main.DocumentService") as MockSvc:
-            MockSvc.return_value = mock_svc_a
+        with patch("src.main.DocumentService", return_value=mock_svc_a):
             resp_a = await raw_client.get("/api/v1/documents", headers=auth_headers_user_a)
-        assert all(d["user_id"] == "user-A" for d in resp_a.json()["items"])
-
-        with patch("src.main.DocumentService") as MockSvc:
-            MockSvc.return_value = mock_svc_b
+        with patch("src.main.DocumentService", return_value=mock_svc_b):
             resp_b = await raw_client.get("/api/v1/documents", headers=auth_headers_user_b)
-        assert all(d["user_id"] == "user-B" for d in resp_b.json()["items"])
 
-        # Cross-user: user-A docs do not appear in user-B's response
-        a_ids = {d["id"] for d in resp_a.json()["items"]}
-        b_ids = {d["id"] for d in resp_b.json()["items"]}
+        docs_a = resp_a.json()
+        docs_b = resp_b.json()
+
+        assert isinstance(docs_a, list)
+        assert isinstance(docs_b, list)
+        assert all(d["user_id"] == "user-A" for d in docs_a)
+        assert all(d["user_id"] == "user-B" for d in docs_b)
+
+        a_ids = {d["id"] for d in docs_a}
+        b_ids = {d["id"] for d in docs_b}
         assert a_ids.isdisjoint(b_ids)
 
     @pytest.mark.asyncio
@@ -119,7 +122,7 @@ class TestDocumentUploadAPI:
     ):
         """User B cannot delete User A's document → 403 FORBIDDEN."""
         mock_svc = AsyncMock()
-        mock_svc.delete_document.return_value = False  # not owned by user-B
+        mock_svc.delete_document.return_value = False
 
         with patch("src.main.DocumentService", return_value=mock_svc):
             response = await raw_client.delete(
@@ -146,11 +149,11 @@ class TestDocumentUploadAPI:
 
 
 class TestRateLimitHeaders:
-    """API-RL: Verify API returns expected HTTP codes under load."""
+    """API-RL: Health endpoint availability."""
 
     @pytest.mark.asyncio
     async def test_api_health_check_is_fast(self, raw_client):
-        """Health endpoint should respond quickly and return 200."""
+        """Health endpoint should respond 200."""
         response = await raw_client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"

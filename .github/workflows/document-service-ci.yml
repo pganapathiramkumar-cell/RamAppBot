@@ -9,20 +9,23 @@ on:
     branches: [main]
     paths:
       - "services/document-service/**"
+  schedule:
+    # Security tests run nightly at 2 AM UTC
+    - cron: "0 2 * * *"
 
 defaults:
   run:
     working-directory: services/document-service
 
 jobs:
-  # ── Step 1 + 3: Unit tests (file validator, document svc, JWT, AI chains) ──
+  # ── Unit tests (no LLM, no auth) ──────────────────────────────────────────
   unit-tests:
     name: Unit Tests (no LLM calls)
     runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
     env:
       SUPABASE_JWT_SECRET: test_secret_for_ci_only
       LLM_PROVIDER: mock
-      CHROMA_PERSIST_PATH: /tmp/test_chroma
 
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +36,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Unit Tests + Coverage
         run: |
@@ -44,26 +49,27 @@ jobs:
             --cov-report=xml \
             --cov-report=term-missing
 
-      - name: Coverage Gate (40% minimum — unit tests only, no integration)
+      - name: Coverage Gate (40% minimum)
         run: pytest tests/unit/ --cov=src --cov-fail-under=40 -q
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          files: services/document-service/coverage.xml
+          files: coverage.xml
           flags: document-service-unit
         if: always()
         continue-on-error: true
 
-  # ── Step 4: API integration tests (mocked LLM) ────────────────────────────
+  # ── API integration tests (mocked LLM, real auth) ─────────────────────────
   integration-tests:
     name: API Integration Tests
     runs-on: ubuntu-latest
     needs: unit-tests
+    if: github.event_name != 'schedule'
     env:
       SUPABASE_JWT_SECRET: test_secret_for_ci_only
       LLM_PROVIDER: mock
-      CHROMA_PERSIST_PATH: /tmp/test_chroma
+      SKIP_AUTH: "false"
 
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +80,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Integration Tests
         run: |
@@ -104,11 +112,13 @@ jobs:
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           ollama serve &
-          sleep 5
+          sleep 10
           ollama pull llama3.2
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Security Tests (local Llama)
         run: |
@@ -116,7 +126,3 @@ jobs:
             -v \
             -m "security" \
             --timeout=300
-
-# Nightly and weekly schedules are defined separately:
-# nightly: 2 AM UTC  → security-tests
-# weekly:  6 AM Mon  → golden-path (manual dispatch or separate workflow)

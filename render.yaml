@@ -21,3 +21,7 @@ services:
         value: "5242880"
       - key: CORS_ALLOW_ORIGINS
         value: https://your-frontend.onrender.com
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

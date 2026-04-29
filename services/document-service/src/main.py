@@ -109,8 +109,8 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
 
         table_update("documents", {"status": "done"}, {"id": document_id})
 
-        # Purge any records older than 1 hour to cap long-running memory growth
-        purge_old_records(max_age_seconds=3600)
+        # Purge records older than 30 min to cap memory on Render's 512 MB plan
+        purge_old_records(max_age_seconds=1800)
         del text
         gc.collect()
 
