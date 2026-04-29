@@ -3,30 +3,70 @@ Text chunker — splits extracted PDF text into overlapping semantic chunks
 for parallel LLM processing.
 
 Strategy:
-  - Prefer splitting at paragraph / sentence boundaries
-  - Chunk size  : ~2000 tokens  (≈ 8000 chars)
-  - Overlap     : ~200  tokens  (≈  800 chars) so context isn't lost at edges
-  - Min chunk   : 300 chars — discard tiny trailing fragments
+  - Clean text first (strip page numbers, headers, excessive whitespace)
+  - Chunk size  : ~875 tokens  (≈ 3500 chars) — focused, less waste
+  - Overlap     : ~75  tokens  (≈  300 chars) — enough context at edges
+  - Min chunk   : 200 chars — discard tiny trailing fragments
+  - Hard cap    : MAX_CHUNKS total — prevents runaway token usage on large docs
 """
 
 from __future__ import annotations
 
 import re
 
-_CHUNK_CHARS = 8_000
-_OVERLAP_CHARS = 800
-_MIN_CHUNK_CHARS = 300
+_CHUNK_CHARS     = 3_500
+_OVERLAP_CHARS   = 300
+_MIN_CHUNK_CHARS = 200
+MAX_CHUNKS       = 8  # hard cap — never send more than 8 chunks to the LLM
 
+
+# ── Text cleaner ───────────────────────────────────────────────────────────────
+
+_PAGE_NUM  = re.compile(r'(?m)^\s*(?:Page\s+)?\d+\s*(?:of\s+\d+)?\s*$')
+_HEADER_HR = re.compile(r'[-=]{4,}')
+_MULTI_NL  = re.compile(r'\n{3,}')
+_MULTI_SP  = re.compile(r'[ \t]{2,}')
+
+
+def clean_text(text: str) -> str:
+    """Strip PDF noise: page numbers, horizontal rules, redundant whitespace."""
+    text = _PAGE_NUM.sub('', text)
+    text = _HEADER_HR.sub('', text)
+    text = _MULTI_SP.sub(' ', text)
+    text = _MULTI_NL.sub('\n\n', text)
+    return text.strip()
+
+
+# ── Chunk selection ────────────────────────────────────────────────────────────
+
+def select_chunks(chunks: list[str], n: int = 4) -> list[str]:
+    """
+    Pick the n most representative chunks without embeddings.
+    Always includes first and last; fills the middle with evenly-spaced picks.
+    Used by chains that need focused context, not every chunk.
+    """
+    if len(chunks) <= n:
+        return chunks
+    if n <= 1:
+        return [chunks[0]]
+    middle_n = n - 2
+    middle = chunks[1:-1]
+    if not middle or middle_n <= 0:
+        return [chunks[0], chunks[-1]]
+    step = max(1, len(middle) // middle_n)
+    sampled = middle[::step][:middle_n]
+    return [chunks[0]] + sampled + [chunks[-1]]
+
+
+# ── Paragraph splitter ─────────────────────────────────────────────────────────
 
 def _split_paragraphs(text: str) -> list[str]:
-    """Split on blank lines, then on sentence boundaries as fallback."""
     paras = re.split(r'\n{2,}', text)
     result: list[str] = []
     for para in paras:
         para = para.strip()
         if not para:
             continue
-        # If a paragraph is itself very long, split on sentence boundaries
         if len(para) > _CHUNK_CHARS:
             sentences = re.split(r'(?<=[.!?])\s+', para)
             result.extend(s.strip() for s in sentences if s.strip())
@@ -35,25 +75,26 @@ def _split_paragraphs(text: str) -> list[str]:
     return result
 
 
+# ── Main entry point ───────────────────────────────────────────────────────────
+
 def chunk_text(text: str) -> list[str]:
     """
-    Return a list of overlapping text chunks suitable for LLM calls.
-    Each chunk fits comfortably within an 8k-token context window.
+    Clean and chunk text. Returns at most MAX_CHUNKS chunks.
+    If the document produces more, keeps first 2 + evenly-spaced middle + last 2.
     """
+    text = clean_text(text)
+
     if len(text) <= _CHUNK_CHARS:
         return [text]
 
     units = _split_paragraphs(text)
     chunks: list[str] = []
     current = ""
-    overlap_buf = ""
 
     for unit in units:
-        # If adding this unit would exceed the chunk size, finalise current chunk
         if current and len(current) + len(unit) + 1 > _CHUNK_CHARS:
             if len(current) >= _MIN_CHUNK_CHARS:
                 chunks.append(current.strip())
-            # Start new chunk with overlap from end of previous
             overlap_buf = current[-_OVERLAP_CHARS:] if len(current) > _OVERLAP_CHARS else current
             current = overlap_buf + "\n\n" + unit
         else:
@@ -62,4 +103,15 @@ def chunk_text(text: str) -> list[str]:
     if current.strip() and len(current.strip()) >= _MIN_CHUNK_CHARS:
         chunks.append(current.strip())
 
-    return chunks or [text[:_CHUNK_CHARS]]
+    raw = chunks or [text[:_CHUNK_CHARS]]
+
+    # Hard cap — keep first 2 + evenly-spaced middle + last 2
+    if len(raw) > MAX_CHUNKS:
+        head = raw[:2]
+        tail = raw[-2:]
+        mid_n = MAX_CHUNKS - 4
+        mid = raw[2:-2]
+        step = max(1, len(mid) // mid_n) if mid_n > 0 else 1
+        raw = head + mid[::step][:mid_n] + tail
+
+    return raw

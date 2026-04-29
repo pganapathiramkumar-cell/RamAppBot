@@ -12,6 +12,11 @@ import re
 
 from src.core.exceptions import ExtractionFailedError
 
+# Workflow works best with full document context but must stay within the
+# LLM context window. Cap at ~12 000 chars (≈3 000 tokens) which leaves
+# room for the system prompt and response.
+_MAX_WORKFLOW_CHARS = 12_000
+
 _FALLBACK_STEPS = [
     {
         "step_number": 1,
@@ -98,20 +103,40 @@ def _parse_steps(raw: str) -> list[dict]:
 
 
 class WorkflowGenerationChain:
-    def __init__(self, llm=None, max_retries: int = 3):
+    def __init__(self, llm=None, max_retries: int = 3, semaphore=None):
         if llm is None:
             from src.ai.llm_client import LLMClient
             llm = LLMClient()
         self._llm = llm
         self.max_retries = max_retries
+        self._sem = semaphore
 
-    async def run(self, text: str) -> list[dict]:
+    async def run(self, text: str, chunks: list[str] | None = None) -> list[dict]:
         """
         Generate structured workflow steps from document text.
-        Returns a list of step dicts.
+        For large documents, uses the first chunk + last chunk so the LLM
+        sees both the document opening (context) and closing (conclusions/actions)
+        without exceeding the context window.
         """
+        if len(text) > _MAX_WORKFLOW_CHARS:
+            if chunks and len(chunks) >= 2:
+                # First chunk sets context; last chunk has conclusions/actions
+                half = _MAX_WORKFLOW_CHARS // 2
+                condensed = chunks[0][:half] + "\n\n[...]\n\n" + chunks[-1][:half]
+            else:
+                # No pre-computed chunks — take head + tail of raw text
+                half = _MAX_WORKFLOW_CHARS // 2
+                condensed = text[:half] + "\n\n[...]\n\n" + text[-half:]
+            input_text = condensed
+        else:
+            input_text = text
+
         for attempt in range(1, self.max_retries + 1):
-            resp  = await self._llm.ainvoke(text, system=_SYSTEM)
+            if self._sem:
+                async with self._sem:
+                    resp = await self._llm.ainvoke(input_text, system=_SYSTEM, max_tokens=800)
+            else:
+                resp = await self._llm.ainvoke(input_text, system=_SYSTEM, max_tokens=800)
             steps = _parse_steps(resp.content)
             if steps:
                 return steps

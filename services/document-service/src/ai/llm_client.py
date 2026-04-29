@@ -103,12 +103,12 @@ def _smart_mock(system: str, prompt: str) -> str:
 
 # ── Individual provider callers ────────────────────────────────────────────────
 
-async def _call_groq(messages: list[dict], model: str) -> str:
+async def _call_groq(messages: list[dict], model: str, max_tokens: int) -> str:
     from groq import AsyncGroq, RateLimitError as GroqRateLimit
     client = AsyncGroq(api_key=settings.GROQ_API_KEY)
     try:
         resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=2048,
+            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
         )
         return resp.choices[0].message.content or ""
     except GroqRateLimit as e:
@@ -119,12 +119,12 @@ async def _call_groq(messages: list[dict], model: str) -> str:
         raise
 
 
-async def _call_nvidia(messages: list[dict], model: str) -> str:
+async def _call_nvidia(messages: list[dict], model: str, max_tokens: int) -> str:
     from openai import AsyncOpenAI, RateLimitError as OAIRateLimit
     client = AsyncOpenAI(api_key=settings.NVIDIA_API_KEY, base_url=settings.NVIDIA_BASE_URL)
     try:
         resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=2048,
+            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
         )
         return resp.choices[0].message.content or ""
     except OAIRateLimit as e:
@@ -135,7 +135,7 @@ async def _call_nvidia(messages: list[dict], model: str) -> str:
         raise
 
 
-async def _call_cerebras(messages: list[dict], model: str) -> str:
+async def _call_cerebras(messages: list[dict], model: str, max_tokens: int) -> str:
     from openai import AsyncOpenAI, RateLimitError as OAIRateLimit
     client = AsyncOpenAI(
         api_key=settings.CEREBRAS_API_KEY,
@@ -143,7 +143,7 @@ async def _call_cerebras(messages: list[dict], model: str) -> str:
     )
     try:
         resp = await client.chat.completions.create(
-            model=model, messages=messages, temperature=0.1, max_tokens=2048,
+            model=model, messages=messages, temperature=0.1, max_tokens=max_tokens,
         )
         return resp.choices[0].message.content or ""
     except OAIRateLimit as e:
@@ -182,7 +182,7 @@ class LLMClient:
         active = [p for p, _ in self._chain]
         print(f"[LLMClient] Provider chain: {' → '.join(active)}")
 
-    async def ainvoke(self, prompt: str, system: str = "") -> LLMResponse:
+    async def ainvoke(self, prompt: str, system: str = "", max_tokens: int = 1024) -> LLMResponse:
         messages: list[dict] = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -193,11 +193,11 @@ class LLMClient:
         for provider, model in self._chain:
             try:
                 if provider == "groq":
-                    content = await _call_groq(messages, model)
+                    content = await _call_groq(messages, model, max_tokens)
                 elif provider == "nvidia":
-                    content = await _call_nvidia(messages, model)
+                    content = await _call_nvidia(messages, model, max_tokens)
                 elif provider == "cerebras":
-                    content = await _call_cerebras(messages, model)
+                    content = await _call_cerebras(messages, model, max_tokens)
                 else:
                     content = _smart_mock(system, prompt)
 

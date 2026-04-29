@@ -75,15 +75,17 @@ def _empty_entities() -> dict:
 
 
 class EntityExtractionChain:
-    def __init__(self, llm=None, max_retries: int = 3):
+    def __init__(self, llm=None, max_retries: int = 3, semaphore=None):
         if llm is None:
             from src.ai.llm_client import LLMClient
             llm = LLMClient()
         self._llm = llm
         self.max_retries = max_retries
+        self._sem = semaphore
 
-    async def run(self, text: str) -> dict:
-        chunks = chunk_text(text)
+    async def run(self, text: str, chunks: list[str] | None = None) -> dict:
+        # Use pre-computed chunks if provided, otherwise chunk here (fallback)
+        chunks = chunks if chunks is not None else chunk_text(text)
 
         if len(chunks) == 1:
             return await self._extract_single(chunks[0])
@@ -106,7 +108,11 @@ class EntityExtractionChain:
 
     async def _extract_single(self, text: str) -> dict:
         for attempt in range(1, self.max_retries + 1):
-            resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM)
+            if self._sem:
+                async with self._sem:
+                    resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=800)
+            else:
+                resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=800)
             parsed = _parse_json_block(resp.content)
             if parsed is not None:
                 result = _empty_entities()
@@ -122,7 +128,7 @@ class EntityExtractionChain:
         """Ask the LLM to deduplicate and consolidate across chunks."""
         combined = json.dumps(chunk_results, indent=2)
         for attempt in range(1, self.max_retries + 1):
-            resp = await self._llm.ainvoke(combined, system=_MERGE_SYSTEM)
+            resp = await self._llm.ainvoke(combined, system=_MERGE_SYSTEM, max_tokens=800)
             parsed = _parse_json_block(resp.content)
             if parsed is not None:
                 result = _empty_entities()
