@@ -1,12 +1,15 @@
 """Analysis service — orchestrates the full AI pipeline for a document."""
 
+import logging
 from pathlib import Path
 import uuid
 
-from src.core.exceptions import AnalysisNotReadyError, DocumentNotFoundError
+from src.core.exceptions import AnalysisNotReadyError, DocumentNotFoundError, PDFParseError
 from src.infrastructure.storage.memory_store import (
     table_insert, table_select, table_update,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def run_ai_pipeline(document_id: str, text: str) -> dict:
@@ -24,14 +27,15 @@ async def extract_text_from_pdf(file_source: bytes | str | Path) -> str:
     Extract text from a PDF page by page using pypdf.
 
     Accepts either an in-memory byte string or a filesystem path.
-    The path-based flow is preferred in production because it keeps PDF bytes
-    out of resident memory while the analysis pipeline is running.
+    Returns empty string for genuinely empty/scanned PDFs.
+    Raises PDFParseError only on hard library/IO failures.
     """
     try:
         from pypdf import PdfReader
         if isinstance(file_source, (str, Path)):
             pdf_path = Path(file_source)
             if not pdf_path.exists():
+                logger.warning("PDF path does not exist: %s", pdf_path)
                 return ""
             with pdf_path.open("rb") as handle:
                 reader = PdfReader(handle, strict=False)
@@ -40,19 +44,27 @@ async def extract_text_from_pdf(file_source: bytes | str | Path) -> str:
                     text = page.extract_text() or ""
                     if text.strip():
                         pages.append(text.strip())
-                return "\n\n".join(pages)
+                extracted = "\n\n".join(pages)
+                logger.info("PDF extraction: %d pages, %d chars extracted from %s",
+                            len(reader.pages), len(extracted), pdf_path.name)
+                return extracted
 
         import io
-
         reader = PdfReader(io.BytesIO(file_source), strict=False)
         pages = []
         for page in reader.pages:
             text = page.extract_text() or ""
             if text.strip():
                 pages.append(text.strip())
-        return "\n\n".join(pages)
-    except Exception:
-        return ""
+        extracted = "\n\n".join(pages)
+        logger.info("PDF extraction (bytes): %d pages, %d chars extracted", len(reader.pages), len(extracted))
+        return extracted
+
+    except PDFParseError:
+        raise
+    except Exception as exc:
+        logger.exception("PDF text extraction failed: %s", exc)
+        raise PDFParseError() from exc
 
 
 class AnalysisService:

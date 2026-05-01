@@ -3,10 +3,11 @@ Full document analysis pipeline — 30-second hard cap with partial results.
 
 Strategy:
   - Single-chunk docs skip embedding entirely (no overhead for small PDFs)
-  - Embedding capped at 5s; falls back to positional selection on timeout
+  - Embedding capped at 5s; falls back to BM25 chunk selection on timeout
   - Each chain runs with a 22s individual timeout
   - asyncio.gather(return_exceptions=True) — if one chain times out or fails,
     the others still complete and partial results are returned
+  - Summary NEVER returns "unavailable" — BM25 extractive fallback guaranteed
   - Total wall-clock budget: ~28s (upload + extraction handled outside)
 """
 
@@ -14,22 +15,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
 
 from src.ai.chains.extract import EntityExtractionChain
 from src.ai.chains.snapshot import DocumentSnapshotChain
-from src.ai.chains.summarize import SummarizationChain
+from src.ai.chains.summarize import SummarizationChain, _bm25_extractive_summary
 from src.ai.chains.workflow import WorkflowGenerationChain
-from src.ai.chunker import chunk_text, select_chunks
+from src.ai.chunker import bm25_select_chunks, chunk_text, select_chunks
 from src.ai.llm_client import LLMClient
 from src.core.exceptions import EmptyDocumentError
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONCURRENT_LLM_CALLS = 2
+# Raised to 4 so all chains can make simultaneous progress.
+# Groq rate-limits on tokens/minute — not on concurrent connections.
+_MAX_CONCURRENT_LLM_CALLS = 4
 _EMBED_TIMEOUT  = 5    # seconds — skip embedding if it takes longer
 _CHAIN_TIMEOUT  = 22   # seconds per chain — return partial if exceeded
-_TOP_N = 3
+_TOP_N          = 4    # chunks per chain for retrieval
 
 _QUERY_SUMMARY  = "executive summary main purpose key findings conclusions overview"
 _QUERY_SNAPSHOT = "primary topic main subject entities organizations tools systems concepts"
@@ -59,9 +63,10 @@ class DocumentAnalysisPipeline:
     """
     30-second budget pipeline:
       1. Chunk text
-      2. Embed (skipped for single-chunk docs; 5s timeout otherwise)
+      2. Select relevant chunks via BM25 (or embedding with 5s timeout)
       3. All 4 chains in parallel, each with 22s timeout
-      4. Return whatever completed — partial results > total failure
+      4. Summary always has a value — BM25 extractive fallback if LLM fails
+      5. Return whatever completed — partial results > total failure
     """
 
     def __init__(self, llm: LLMClient | None = None):
@@ -78,15 +83,14 @@ class DocumentAnalysisPipeline:
 
         # ── Step 1: Chunk ──────────────────────────────────────────────────
         chunks = chunk_text(text)
-        logger.info("document=%s  chars=%d  chunks=%d", document_id, len(text), len(chunks))
+        logger.info("document=%s chars=%d chunks=%d", document_id, len(text), len(chunks))
 
-        # ── Step 2: Retrieve chunks per chain ──────────────────────────────
-        # Single-chunk docs: skip embedding overhead, pass chunk directly
+        # ── Step 2: Select relevant chunks per chain ───────────────────────
         if len(chunks) == 1:
             sum_chunks = snap_chunks = ext_chunks = wf_chunks = chunks
-            logger.info("document=%s  single-chunk — skipping embedding", document_id)
+            logger.info("document=%s single-chunk — skipping retrieval", document_id)
         else:
-            sum_chunks, snap_chunks, ext_chunks, wf_chunks = await _embed_with_timeout(
+            sum_chunks, snap_chunks, ext_chunks, wf_chunks = await _retrieve_with_timeout(
                 document_id, chunks
             )
 
@@ -99,13 +103,20 @@ class DocumentAnalysisPipeline:
             return_exceptions=True,
         )
 
-        snapshot = raw[0] if isinstance(raw[0], dict)  else _default_snapshot()
-        summary  = raw[1] if isinstance(raw[1], str)   else "Summary unavailable — please retry."
-        entities = raw[2] if isinstance(raw[2], dict)  else _default_entities()
-        workflow = raw[3] if isinstance(raw[3], list)  else _default_workflow()
+        snapshot = raw[0] if isinstance(raw[0], dict) else _default_snapshot()
+        entities = raw[2] if isinstance(raw[2], dict) else _default_entities()
+        workflow = raw[3] if isinstance(raw[3], list) else _default_workflow()
+
+        # Summary: never return a failure string — BM25 extractive is the guaranteed fallback
+        if isinstance(raw[1], str) and raw[1].strip():
+            summary = raw[1]
+        else:
+            reason = type(raw[1]).__name__ if isinstance(raw[1], Exception) else "empty_response"
+            logger.warning("document=%s summary chain failed (%s) — using BM25 extractive fallback", document_id, reason)
+            summary = _bm25_extractive_summary(text)
 
         completed = sum(1 for r in raw if not isinstance(r, Exception))
-        logger.info("document=%s  chains completed: %d/4", document_id, completed)
+        logger.info("document=%s chains completed: %d/4", document_id, completed)
 
         return {
             "snapshot":    snapshot,
@@ -128,16 +139,16 @@ async def _with_timeout(coro, seconds: float, name: str):
         return exc
 
 
-async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
+async def _retrieve_with_timeout(document_id: str, chunks: list[str]) -> tuple:
     """
-    Embed + retrieve with a 5s budget.
-    If embeddings are unavailable or too slow, falls back to positional select_chunks.
+    Try embedding-based retrieval with a 5s budget.
+    Falls back to BM25 chunk selection, then positional if BM25 unavailable.
     """
-    fallback = (
-        select_chunks(chunks, n=4),
-        select_chunks(chunks, n=4),
-        select_chunks(chunks, n=4),
-        select_chunks(chunks, n=4),
+    bm25_fallback = (
+        bm25_select_chunks(chunks, _QUERY_SUMMARY,  top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_SNAPSHOT, top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_EXTRACT,  top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_WORKFLOW, top_k=_TOP_N),
     )
     try:
         return await asyncio.wait_for(
@@ -145,37 +156,42 @@ async def _embed_with_timeout(document_id: str, chunks: list[str]) -> tuple:
             timeout=_EMBED_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        logger.warning("document=%s  embedding timed out — using positional fallback", document_id)
-        return fallback
+        logger.warning("document=%s embedding timed out — using BM25 fallback", document_id)
+        return bm25_fallback
     except Exception as exc:
-        logger.warning("document=%s  embedding error: %s — using fallback", document_id, exc)
-        return fallback
+        logger.warning("document=%s embedding error: %s — using BM25 fallback", document_id, exc)
+        return bm25_fallback
 
 
 async def _embed_and_retrieve(document_id: str, chunks: list[str]) -> tuple:
     from src.ai.embeddings import get_embedding_service
 
-    fallback = select_chunks(chunks, n=4)
+    bm25_fallback = (
+        bm25_select_chunks(chunks, _QUERY_SUMMARY,  top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_SNAPSHOT, top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_EXTRACT,  top_k=_TOP_N),
+        bm25_select_chunks(chunks, _QUERY_WORKFLOW, top_k=_TOP_N),
+    )
 
     try:
         svc = get_embedding_service()
         top_n = min(_TOP_N, len(chunks))
         ranked = await svc.retrieve_many(
             {
-                "summary": _QUERY_SUMMARY,
+                "summary":  _QUERY_SUMMARY,
                 "snapshot": _QUERY_SNAPSHOT,
-                "extract": _QUERY_EXTRACT,
+                "extract":  _QUERY_EXTRACT,
                 "workflow": _QUERY_WORKFLOW,
             },
             chunks,
             top_n=top_n,
         )
         return (
-            ranked.get("summary", fallback) or fallback,
-            ranked.get("snapshot", fallback) or fallback,
-            ranked.get("extract", fallback) or fallback,
-            ranked.get("workflow", fallback) or fallback,
+            ranked.get("summary",  bm25_fallback[0]) or bm25_fallback[0],
+            ranked.get("snapshot", bm25_fallback[1]) or bm25_fallback[1],
+            ranked.get("extract",  bm25_fallback[2]) or bm25_fallback[2],
+            ranked.get("workflow", bm25_fallback[3]) or bm25_fallback[3],
         )
     except Exception as exc:
-        logger.warning("Retrieval failed for %s: %s — fallback", document_id, exc)
-        return fallback, fallback, fallback, fallback
+        logger.warning("document=%s retrieval failed: %s — BM25 fallback", document_id, exc)
+        return bm25_fallback

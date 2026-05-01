@@ -65,3 +65,16 @@ class JWTSignatureError(DocumentServiceError):
 class JWTInvalidAlgorithmError(DocumentServiceError):
     def __init__(self):
         super().__init__("Token uses an unsupported algorithm", status_code=400)
+
+
+class LLMEmptyCompletionError(DocumentServiceError):
+    def __init__(self, provider: str = "unknown"):
+        super().__init__(f"LLM provider '{provider}' returned empty completion", status_code=500)
+
+
+class PDFParseError(DocumentServiceError):
+    def __init__(self, filename: str = ""):
+        super().__init__(
+            f"Failed to extract text from PDF '{filename}'" if filename else "PDF text extraction failed",
+            status_code=422,
+        )

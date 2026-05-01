@@ -1,13 +1,16 @@
 """Document Service — FastAPI Application."""
 
 import gc
+import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.core.config import settings
 from src.core.exceptions import (
@@ -19,6 +22,7 @@ from src.core.exceptions import (
     JWTExpiredError,
     JWTInvalidAlgorithmError,
     JWTSignatureError,
+    PDFParseError,
 )
 from src.core.security import decode_token
 from src.services.analysis_svc import AnalysisService, extract_text_from_pdf, run_ai_pipeline
@@ -26,16 +30,34 @@ from src.services.document_svc import DocumentService
 from src.services.file_validator import validate_pdf_header
 from src.infrastructure.storage.memory_store import table_update, blob_get, blob_delete, purge_old_records
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ── X-Trace-Id middleware ──────────────────────────────────────────────────────
+
+class TraceIDMiddleware(BaseHTTPMiddleware):
+    """Propagate or generate X-Trace-Id on every response for debugging in Render logs."""
+
+    async def dispatch(self, request: Request, call_next):
+        trace_id = request.headers.get("X-Trace-Id") or str(uuid.uuid4())
+        response = await call_next(request)
+        response.headers["X-Trace-Id"] = trace_id
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mode = "DEV (no auth)" if settings.SKIP_AUTH else "PROD"
-    print(
-        f"[Document Service] Starting — mode: {mode} | "
-        f"max upload: {settings.MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB"
+    logger.info(
+        "Document Service starting — mode: %s | max upload: %d MB",
+        mode, settings.MAX_FILE_SIZE_BYTES // (1024 * 1024),
     )
     yield
-    print("[Document Service] Shutting down")
+    logger.info("Document Service shutting down")
 
 
 app = FastAPI(
@@ -44,6 +66,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(TraceIDMiddleware)
 
 _cors_origins = [origin.strip() for origin in settings.CORS_ALLOW_ORIGINS.split(",") if origin.strip()]
 if not _cors_origins:
@@ -62,7 +86,6 @@ _DEV_USER = {"sub": "dev-user-001", "email": "dev@rambot.local"}
 
 
 def get_current_user(authorization: Annotated[str | None, Header()] = None) -> dict:
-    # Development bypass — no token required
     if settings.SKIP_AUTH:
         if not authorization:
             return _DEV_USER
@@ -87,20 +110,32 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
     Background task: extract text → run AI chains → save results → clean up memory.
     PDF bytes and embeddings are deleted immediately after analysis to free RAM.
     """
+    trace_id = str(uuid.uuid4())
+    logger.info("Pipeline START document=%s trace=%s", document_id, trace_id)
     try:
         table_update("documents", {"status": "processing"}, {"id": document_id})
 
         pdf_path = blob_get(storage_path)
         if not pdf_path:
-            raise ValueError("PDF path not found in store")
+            raise ValueError(f"PDF path not found in store for storage_path={storage_path}")
 
-        text = await extract_text_from_pdf(pdf_path)
+        try:
+            text = await extract_text_from_pdf(pdf_path)
+        except PDFParseError as exc:
+            logger.error("document=%s trace=%s PDF parse failed: %s", document_id, trace_id, exc)
+            blob_delete(storage_path)
+            table_update("documents", {"status": "failed"}, {"id": document_id})
+            return
 
-        # Free stored PDF immediately after extraction.
+        # Free stored PDF immediately after extraction
         blob_delete(storage_path)
 
         if not text.strip():
-            text = "This PDF appears to be a scanned image or contains no extractable text. Please upload a text-based PDF."
+            logger.warning("document=%s trace=%s PDF produced no extractable text — using placeholder", document_id, trace_id)
+            text = (
+                "This PDF appears to be a scanned image or contains no extractable text. "
+                "Please upload a text-based PDF for full analysis."
+            )
 
         result = await run_ai_pipeline(document_id=document_id, text=text)
 
@@ -108,6 +143,7 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
         await svc.save_analysis(document_id, result)
 
         table_update("documents", {"status": "done"}, {"id": document_id})
+        logger.info("Pipeline DONE document=%s trace=%s chains_completed=4", document_id, trace_id)
 
         # Purge records older than 30 min to cap memory on Render's 512 MB plan
         purge_old_records(max_age_seconds=1800)
@@ -115,8 +151,8 @@ async def _run_pipeline_bg(document_id: str, storage_path: str) -> None:
         gc.collect()
 
     except Exception as exc:
-        print(f"[Pipeline] FAILED for {document_id}: {exc}")
-        blob_delete(storage_path)   # always free the blob even on failure
+        logger.exception("Pipeline FAILED document=%s trace=%s: %s", document_id, trace_id, exc)
+        blob_delete(storage_path)
         table_update("documents", {"status": "failed"}, {"id": document_id})
         gc.collect()
 
@@ -131,7 +167,11 @@ async def health():
         "nvidia": settings.NVIDIA_MODEL,
         "cerebras": settings.CEREBRAS_MODEL,
     }.get(settings.LLM_PROVIDER, "mock")
-    embedding_provider = "openai" if settings.OPENAI_API_KEY and settings.EMBEDDING_PROVIDER in {"api", "openai"} else "lexical"
+    embedding_provider = (
+        "openai"
+        if settings.OPENAI_API_KEY and settings.EMBEDDING_PROVIDER in {"api", "openai"}
+        else "lexical"
+    )
     return {
         "status": "ok",
         "service": settings.SERVICE_NAME,
@@ -140,6 +180,12 @@ async def health():
         "llm_model": llm_model,
         "embedding_provider": embedding_provider,
     }
+
+
+@app.get("/healthz")
+async def healthz():
+    """Lightweight liveness probe — no DB or LLM checks."""
+    return {"status": "ok"}
 
 
 # ── Privacy Policy ────────────────────────────────────────────────────────────
@@ -283,7 +329,6 @@ async def upload_document(
         file_size=declared_size,
     )
 
-    # Kick off AI pipeline in the background (non-blocking)
     if doc.get("status") == "pending":
         background_tasks.add_task(_run_pipeline_bg, doc["id"], doc["storage_path"])
 
@@ -297,7 +342,7 @@ async def upload_document(
 async def list_documents(user: CurrentUser = None):
     svc = DocumentService()
     docs = await svc.list_documents(user_id=user["sub"])
-    return docs          # plain list — frontend expects array
+    return docs
 
 
 @app.delete("/api/v1/documents/{document_id}", status_code=204)
@@ -318,7 +363,6 @@ async def get_analysis(document_id: str, user: CurrentUser = None):
     except DocumentNotFoundError as exc:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": exc.message})
     except AnalysisNotReadyError as exc:
-        # Return 200 with status so the frontend can poll cleanly
         return {"document_id": document_id, "status": exc.current_status}
 
 
@@ -331,7 +375,6 @@ async def retry_analysis(
     svc = AnalysisService()
     try:
         result = await svc.retry_analysis(document_id, user_id=user["sub"])
-        # Re-run pipeline
         from src.infrastructure.storage.memory_store import table_select
         docs = table_select("documents", {"id": document_id})
         if docs:

@@ -25,3 +25,9 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: PYTHONMALLOC
+        value: malloc
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: USE_REFACTORED_PIPELINE
+        value: "true"

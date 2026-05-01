@@ -8,11 +8,15 @@ Strategy:
   - Overlap     : ~75  tokens  (≈  300 chars) — enough context at edges
   - Min chunk   : 200 chars — discard tiny trailing fragments
   - Hard cap    : MAX_CHUNKS total — prevents runaway token usage on large docs
+  - BM25 selection — rank chunks by query relevance (rank_bm25, pure Python)
 """
 
 from __future__ import annotations
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 _CHUNK_CHARS     = 3_500
 _OVERLAP_CHARS   = 300
@@ -28,8 +32,12 @@ _MULTI_NL  = re.compile(r'\n{3,}')
 _MULTI_SP  = re.compile(r'[ \t]{2,}')
 
 
+_HYPHEN_BREAK = re.compile(r'(\w)-\n(\w)')  # fix hyphenated line-breaks from PDF extraction
+
+
 def clean_text(text: str) -> str:
     """Strip PDF noise: page numbers, horizontal rules, redundant whitespace."""
+    text = _HYPHEN_BREAK.sub(r'\1\2', text)   # rejoin split words
     text = _PAGE_NUM.sub('', text)
     text = _HEADER_HR.sub('', text)
     text = _MULTI_SP.sub(' ', text)
@@ -115,3 +123,26 @@ def chunk_text(text: str) -> list[str]:
         raw = head + mid[::step][:mid_n] + tail
 
     return raw
+
+
+def bm25_select_chunks(chunks: list[str], query: str, top_k: int = 4) -> list[str]:
+    """
+    Rank chunks by BM25 relevance to query and return top-k.
+
+    Falls back to positional select_chunks if rank_bm25 is unavailable.
+    Preserves document order in the returned subset.
+    """
+    if len(chunks) <= top_k:
+        return chunks
+    try:
+        from rank_bm25 import BM25Okapi
+        tokenized = [c.lower().split() for c in chunks]
+        bm25 = BM25Okapi(tokenized)
+        scores = bm25.get_scores(query.lower().split())
+        top_indices = sorted(
+            range(len(scores)), key=lambda i: scores[i], reverse=True
+        )[:top_k]
+        return [chunks[i] for i in sorted(top_indices)]
+    except Exception as exc:
+        logger.warning("bm25_select_chunks fallback to positional: %s", exc)
+        return select_chunks(chunks, n=top_k)

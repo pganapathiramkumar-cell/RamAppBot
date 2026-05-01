@@ -11,12 +11,15 @@ Fallback order: Groq → NVIDIA NIM → Cerebras → Mock
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import Counter
 
 import httpx
 
 from src.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Keep well under the per-chain asyncio budget (22s) so the fallback chain
 # (Groq → NVIDIA → Cerebras → Mock) has room to complete within the window.
@@ -128,7 +131,8 @@ async def _call_openai_compat(
     if resp.status_code in _RATE_LIMIT_CODES:
         raise RateLimitError(f"Rate limited {resp.status_code}: {resp.text[:200]}")
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"] or ""
+    content = resp.json()["choices"][0]["message"]["content"]
+    return content or ""
 
 
 async def _call_groq(messages: list[dict], model: str, max_tokens: int) -> str:
@@ -179,7 +183,7 @@ class LLMClient:
         if settings.CEREBRAS_API_KEY:
             self._chain.append(("cerebras", settings.CEREBRAS_MODEL))
         self._chain.append(("mock", "mock"))
-        print(f"[LLMClient] Provider chain: {' → '.join(p for p, _ in self._chain)}")
+        logger.info("LLMClient provider chain: %s", " → ".join(p for p, _ in self._chain))
 
     async def ainvoke(self, prompt: str, system: str = "", max_tokens: int = 1024) -> LLMResponse:
         messages: list[dict] = []
@@ -187,6 +191,7 @@ class LLMClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
+        last_exc: Exception | None = None
         for provider, model in self._chain:
             try:
                 if provider == "groq":
@@ -199,13 +204,15 @@ class LLMClient:
                     content = _smart_mock(system, prompt)
 
                 if provider != "mock":
-                    print(f"[LLMClient] Used provider: {provider}")
+                    logger.debug("LLMClient used provider: %s", provider)
                 return LLMResponse(content=content)
 
             except RateLimitError as exc:
-                print(f"[LLMClient] {provider} rate limited — trying next. {exc}")
+                logger.warning("LLMClient %s rate limited — trying next provider: %s", provider, exc)
+                last_exc = exc
             except Exception as exc:
-                print(f"[LLMClient] {provider} error: {exc} — trying next.")
+                logger.warning("LLMClient %s error — trying next provider: %s", provider, exc)
+                last_exc = exc
 
-        print("[LLMClient] All providers failed — using mock fallback.")
+        logger.error("LLMClient all providers failed (last: %s) — using mock fallback", last_exc)
         return LLMResponse(content=_smart_mock(system, prompt))

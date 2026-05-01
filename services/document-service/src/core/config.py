@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     MAX_UPLOADS_PER_HOUR: int = 10
     MAX_REQUESTS_PER_MINUTE: int = 100
 
+    # Feature flag — set USE_REFACTORED_PIPELINE=false in Render dashboard to instant-rollback
+    USE_REFACTORED_PIPELINE: bool = True
+
     model_config = ConfigDict(env_file=".env")
 
 
