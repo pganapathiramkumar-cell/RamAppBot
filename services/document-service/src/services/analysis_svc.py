@@ -12,11 +12,27 @@ from src.infrastructure.storage.memory_store import (
 logger = logging.getLogger(__name__)
 
 
+_TEXT_HARD_CAP = 500_000  # ~125k words — beyond this LLM quality degrades anyway
+
 async def run_ai_pipeline(document_id: str, text: str) -> dict:
     """
     Run the full AI pipeline:  summarize → extract entities → generate workflow.
     Returns a dict with keys: summary, entities, workflow.
+
+    Text is capped at 500,000 chars (~125k words) before entering the pipeline.
+    Beyond this, the LLM cannot produce meaningfully better results and the
+    chunker hard-cap (MAX_CHUNKS=20) would discard the excess anyway.
     """
+    if len(text) > _TEXT_HARD_CAP:
+        logger.warning(
+            "document=%s text truncated %d→%d chars (~%dk words) for pipeline",
+            document_id, len(text), _TEXT_HARD_CAP, _TEXT_HARD_CAP // 5,
+        )
+        # Keep first 85% + last 15% so intro and conclusions are both represented
+        head = int(_TEXT_HARD_CAP * 0.85)
+        tail = _TEXT_HARD_CAP - head
+        text = text[:head] + "\n\n[...document continues...]\n\n" + text[-tail:]
+
     from src.ai.pipeline import DocumentAnalysisPipeline
     pipeline = DocumentAnalysisPipeline()
     return await pipeline.run(document_id=document_id, text=text)

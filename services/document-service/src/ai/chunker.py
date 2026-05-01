@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _CHUNK_CHARS     = 3_500
 _OVERLAP_CHARS   = 300
 _MIN_CHUNK_CHARS = 200
-MAX_CHUNKS       = 8  # hard cap — never send more than 8 chunks to the LLM
+MAX_CHUNKS       = 20  # pool size — BM25 selects best N from this pool per chain
 
 
 # ── Text cleaner ───────────────────────────────────────────────────────────────

@@ -110,9 +110,9 @@ class EntityExtractionChain:
         for attempt in range(1, self.max_retries + 1):
             if self._sem:
                 async with self._sem:
-                    resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=800)
+                    resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=450)
             else:
-                resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=800)
+                resp = await self._llm.ainvoke(text, system=_EXTRACT_SYSTEM, max_tokens=450)
             parsed = _parse_json_block(resp.content)
             if parsed is not None:
                 result = _empty_entities()
@@ -128,7 +128,7 @@ class EntityExtractionChain:
         """Ask the LLM to deduplicate and consolidate across chunks."""
         combined = json.dumps(chunk_results, indent=2)
         for attempt in range(1, self.max_retries + 1):
-            resp = await self._llm.ainvoke(combined, system=_MERGE_SYSTEM, max_tokens=800)
+            resp = await self._llm.ainvoke(combined, system=_MERGE_SYSTEM, max_tokens=450)
             parsed = _parse_json_block(resp.content)
             if parsed is not None:
                 result = _empty_entities()

@@ -28,12 +28,12 @@ from src.core.exceptions import EmptyDocumentError
 
 logger = logging.getLogger(__name__)
 
-# Raised to 4 so all chains can make simultaneous progress.
-# Groq rate-limits on tokens/minute — not on concurrent connections.
+# 4 concurrent slots: all chains make progress simultaneously without starving.
+# Groq rate-limits on tokens/min, not on connections — 4 concurrent is safe.
 _MAX_CONCURRENT_LLM_CALLS = 4
 _EMBED_TIMEOUT  = 5    # seconds — skip embedding if it takes longer
-_CHAIN_TIMEOUT  = 22   # seconds per chain — return partial if exceeded
-_TOP_N          = 4    # chunks per chain for retrieval
+_CHAIN_TIMEOUT  = 28   # seconds per chain — raised to cover 4 parallel map calls
+_TOP_N          = 4    # BM25 top-4 from the 20-chunk pool — controls tokens per chain
 
 _QUERY_SUMMARY  = "executive summary main purpose key findings conclusions overview"
 _QUERY_SNAPSHOT = "primary topic main subject entities organizations tools systems concepts"
